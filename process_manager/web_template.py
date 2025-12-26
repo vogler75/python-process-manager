@@ -100,6 +100,7 @@ def get_html(title: str = "Process Manager") -> str:
             margin-bottom: 12px;
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 15px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.2s ease;
@@ -113,7 +114,7 @@ def get_html(title: str = "Process Manager") -> str:
         .process-name { font-weight: 600; font-size: 1.05em; color: #fff; }
         .process-script { color: #666; font-size: 0.85em; margin-top: 2px; }
         .process-meta { font-size: 0.8em; color: #888; margin-top: 6px; }
-        .process-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .process-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 
         /* Status Badges */
         .status {
@@ -133,7 +134,7 @@ def get_html(title: str = "Process Manager") -> str:
         .status.error { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
 
         /* Buttons */
-        .actions { display: flex; gap: 6px; }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
         .btn {
             padding: 6px 12px;
             border: none;
@@ -234,6 +235,26 @@ def get_html(title: str = "Process Manager") -> str:
         .btn-submit { background: linear-gradient(135deg, #4caf50, #45a049); color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; transition: all 0.2s; width: 100%; }
         .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4); }
         .btn-submit:disabled { background: #444; cursor: not-allowed; transform: none; }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .container { max-width: 95%; margin: 10px auto; }
+        }
+
+        @media (max-width: 900px) {
+            .process-controls { width: 100%; justify-content: flex-start; }
+            .cpu-container { order: 1; }
+            .status { order: 2; }
+            .actions { order: 3; width: 100%; }
+        }
+
+        @media (max-width: 600px) {
+            .header { flex-direction: column; gap: 15px; align-items: flex-start; }
+            .process { padding: 12px 15px; }
+            .process-info { min-width: 100%; }
+            .btn { padding: 5px 10px; font-size: 0.75em; }
+            .cpu-container { display: none; }
+        }
     </style>
 </head>
 <body>
