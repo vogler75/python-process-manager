@@ -88,19 +88,19 @@ class ProcessManager:
         self.max_log_size_mb = self.config.get("logging", {}).get("max_size_mb", 10)
 
         # Load venv path from config
-        venv_path = self.config.get("venv_path", ".venv")
-        venv_path_obj = Path(venv_path)
+        venv = self.config.get("venv", ".venv")
+        venv_obj = Path(venv)
 
         # If relative path, resolve relative to base_dir; otherwise use as-is
-        if not venv_path_obj.is_absolute():
-            venv_path_obj = self.base_dir / venv_path_obj
+        if not venv_obj.is_absolute():
+            venv_obj = self.base_dir / venv_obj
 
-        self.venv_python = venv_path_obj / "bin" / "python"
+        self.venv_python = venv_obj / "bin" / "python"
 
         # Verify venv exists
         if not self.venv_python.exists():
             print(f"Warning: venv not found at {self.venv_python}")
-            print(f"         Configure 'venv_path' in {self.config_path}")
+            print(f"         Configure 'venv' in {self.config_path}")
 
         # Load global cwd from config (optional)
         global_cwd = self.config.get("cwd")
@@ -122,7 +122,7 @@ class ProcessManager:
         # Load manual programs from main config
         for prog in self.config.get("programs", []):
             name = prog["name"]
-            program_venv_path = prog.get("venv_path")
+            program_venv = prog.get("venv")
             program_cwd = prog.get("cwd")
             program_args = prog.get("args")
             program_environment = prog.get("environment")
@@ -138,7 +138,7 @@ class ProcessManager:
                     script=prog["script"],
                     enabled=prog.get("enabled", True),
                     uploaded=False,  # Manual programs are not uploaded
-                    venv_path=program_venv_path,
+                    venv=program_venv,
                     cwd=program_cwd,
                     args=program_args,
                     environment=program_environment
@@ -147,7 +147,7 @@ class ProcessManager:
                 self.processes[name].script = prog["script"]
                 self.processes[name].enabled = prog.get("enabled", True)
                 self.processes[name].uploaded = False
-                self.processes[name].venv_path = program_venv_path
+                self.processes[name].venv = program_venv
                 self.processes[name].cwd = program_cwd
                 self.processes[name].args = program_args
                 self.processes[name].environment = program_environment
@@ -155,7 +155,7 @@ class ProcessManager:
         # Load uploaded programs from uploaded_programs.yaml
         for prog in self.uploaded_config.get("programs", []):
             name = prog["name"]
-            program_venv_path = prog.get("venv_path")
+            program_venv = prog.get("venv")
             program_cwd = prog.get("cwd")
             program_args = prog.get("args")
             program_environment = prog.get("environment")
@@ -171,7 +171,7 @@ class ProcessManager:
                     script=prog["script"],
                     enabled=prog.get("enabled", True),
                     uploaded=True,  # All programs from uploaded config are uploaded
-                    venv_path=program_venv_path,
+                    venv=program_venv,
                     cwd=program_cwd,
                     args=program_args,
                     environment=program_environment
@@ -181,7 +181,7 @@ class ProcessManager:
                 self.processes[name].script = prog["script"]
                 self.processes[name].enabled = prog.get("enabled", True)
                 self.processes[name].uploaded = True
-                self.processes[name].venv_path = program_venv_path
+                self.processes[name].venv = program_venv
                 self.processes[name].cwd = program_cwd
                 self.processes[name].args = program_args
                 self.processes[name].environment = program_environment
@@ -200,8 +200,8 @@ class ProcessManager:
                     "script": info.script,
                     "enabled": info.enabled,
                 }
-                if info.venv_path:
-                    prog["venv_path"] = info.venv_path
+                if info.venv:
+                    prog["venv"] = info.venv
                 if info.cwd:
                     prog["cwd"] = info.cwd
                 if info.args:
@@ -233,8 +233,8 @@ class ProcessManager:
                     "script": info.script,
                     "enabled": info.enabled,
                 }
-                if info.venv_path:
-                    prog["venv_path"] = info.venv_path
+                if info.venv:
+                    prog["venv"] = info.venv
                 if info.cwd:
                     prog["cwd"] = info.cwd
                 if info.args:
@@ -326,12 +326,12 @@ class ProcessManager:
     def get_venv_python(self, info: ProcessInfo) -> Path:
         """Get the Python executable path for a process.
         Uses program-specific venv if set, otherwise falls back to global venv."""
-        if info.venv_path:
-            # Program has its own venv_path
-            venv_path_obj = Path(info.venv_path)
-            if not venv_path_obj.is_absolute():
-                venv_path_obj = self.base_dir / venv_path_obj
-            return venv_path_obj / "bin" / "python"
+        if info.venv:
+            # Program has its own venv
+            venv_obj = Path(info.venv)
+            if not venv_obj.is_absolute():
+                venv_obj = self.base_dir / venv_obj
+            return venv_obj / "bin" / "python"
         else:
             # Use global venv
             return self.venv_python
@@ -755,7 +755,7 @@ class ProcessManager:
                     script=script,
                     enabled=enabled,
                     uploaded=True,
-                    venv_path=str(program_dir / ".venv"),
+                    venv=str(program_dir / ".venv"),
                     cwd=str(program_dir),
                     args=args,
                     environment=environment,

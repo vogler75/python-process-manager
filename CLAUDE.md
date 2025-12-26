@@ -67,14 +67,14 @@ The application uses two configuration files:
 
 **`process_manager.yaml`** - Main configuration and manually configured programs:
 - `web_ui`: host, port, title
-- `venv_path`: global Python venv (can override per-program)
+- `venv`: global Python venv (can override per-program)
 - `cwd`: global working directory (can override per-program)
 - `restart`: delay, max_consecutive_failures, failure_reset_seconds
 - `logging`: max_size_mb for log rotation
-- `programs`: list of manually configured programs {name, script, enabled, venv_path, cwd, args}
+- `programs`: list of manually configured programs {name, script, enabled, venv, cwd, args}
 
 **`uploaded_programs.yaml`** - Auto-managed programs uploaded via web UI:
-- `programs`: list of uploaded programs {name, script, enabled, venv_path, cwd, args}
+- `programs`: list of uploaded programs {name, script, enabled, venv, cwd, args}
 - This file is created automatically when the first program is uploaded
 - Managed entirely by the application - do not edit manually
 - Programs in this file can be removed via the web UI

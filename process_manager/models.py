@@ -24,7 +24,7 @@ class ProcessInfo:
     script: str
     enabled: bool = True
     uploaded: bool = False  # Flag to mark uploaded/managed programs (can be removed via UI)
-    venv_path: str = None  # Optional: program-specific venv path
+    venv: str = None  # Optional: program-specific venv path
     cwd: str = None  # Optional: working directory for the process
     args: list = None  # Optional: command-line arguments
     environment: list = None  # Optional: environment variables as list of "KEY=VALUE" strings

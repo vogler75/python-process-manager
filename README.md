@@ -57,7 +57,7 @@ web_ui:
   title: "My Services" # Custom title for the dashboard
 
 # Python Virtual Environment
-venv_path: ".venv"     # Path to venv (relative or absolute)
+venv: ".venv"     # Path to venv (relative or absolute)
 
 # Working Directory (optional, can override per-program)
 # cwd: "/path/to/scripts"
@@ -77,7 +77,7 @@ programs:
   - name: "My Application"
     script: my_app.py
     enabled: true
-    # venv_path: ".venv"  # Optional: program-specific venv
+    # venv: ".venv"  # Optional: program-specific venv
     # cwd: "/path/to/workdir"  # Optional: working directory
     # args: ["--port", "8080"]  # Optional: command-line arguments
     # environment:  # Optional: environment variables
@@ -92,11 +92,11 @@ programs:
 - `port` - HTTP port for the web interface
 - `title` - Custom title displayed in the dashboard
 
-#### Virtual Environment (`venv_path`)
+#### Virtual Environment (`venv`)
 - **Global**: Set at top level, applies to all programs (default: `.venv`)
 - **Per-program**: Override in program config for specific programs
 - Path can be relative (to config file) or absolute
-- Priority: **program venv_path > global venv_path**
+- Priority: **program venv > global venv**
 
 #### Working Directory (`cwd`)
 - **Global**: Set at top level, applies to all programs
@@ -137,7 +137,7 @@ programs:
 - `name` - Display name in the UI
 - `script` - Python script path (resolved relative to `cwd` if set, otherwise config directory)
 - `enabled` - Auto-start on manager launch (default: true)
-- `venv_path` - Override global venv for this program
+- `venv` - Override global venv for this program
 - `cwd` - Override global cwd for this program
 - `args` - Command-line arguments (list or single string)
 - `environment` - Environment variables (list of KEY=VALUE strings)
@@ -414,7 +414,7 @@ Set defaults at the top level and override for specific programs:
 
 ```yaml
 # Global settings - apply to all programs unless overridden
-venv_path: ".venv"
+venv: ".venv"
 cwd: "/data/apps/myproject"
 
 programs:
@@ -426,7 +426,7 @@ programs:
   # Uses global cwd, but different venv
   - name: "Legacy App"
     script: legacy.py
-    venv_path: ".venv-python37"
+    venv: ".venv-python37"
 
   # Uses global venv, but different cwd
   - name: "Admin Tool"
