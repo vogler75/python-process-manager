@@ -29,7 +29,7 @@ def get_html(title: str = "Process Manager") -> str:
 
         /* Main Frame */
         .container {
-            max-width: 950px;
+            max-width: 1400px;
             margin: 0 auto;
             background: rgba(22, 33, 62, 0.6);
             border-radius: 16px;
@@ -100,9 +100,7 @@ def get_html(title: str = "Process Manager") -> str:
             margin-bottom: 12px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
+            gap: 15px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.2s ease;
         }
@@ -111,10 +109,11 @@ def get_html(title: str = "Process Manager") -> str:
             border-color: rgba(0, 212, 255, 0.2);
             transform: translateY(-1px);
         }
-        .process-info { flex: 1; min-width: 200px; }
-        .process-name { font-weight: 600; font-size: 1.1em; color: #fff; }
+        .process-info { flex: 1; min-width: 250px; }
+        .process-name { font-weight: 600; font-size: 1.05em; color: #fff; }
         .process-script { color: #666; font-size: 0.85em; margin-top: 2px; }
         .process-meta { font-size: 0.8em; color: #888; margin-top: 6px; }
+        .process-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
         /* Status Badges */
         .status {
@@ -134,16 +133,16 @@ def get_html(title: str = "Process Manager") -> str:
         .status.error { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
 
         /* Buttons */
-        .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .actions { display: flex; gap: 6px; }
         .btn {
-            padding: 8px 16px;
+            padding: 6px 12px;
             border: none;
-            border-radius: 6px;
+            border-radius: 5px;
             cursor: pointer;
-            font-size: 0.85em;
+            font-size: 0.8em;
             font-weight: 500;
             transition: all 0.2s ease;
-            min-width: 80px;
+            white-space: nowrap;
         }
         .btn-placeholder { visibility: hidden; pointer-events: none; }
         .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
@@ -383,24 +382,26 @@ def get_html(title: str = "Process Manager") -> str:
                             ${p.is_broken ? ` | Failures: ${p.consecutive_failures}` : ''}
                         </div>
                     </div>
-                    <div class="cpu-container">
-                        <div class="cpu-chart">${renderSparkline(p.cpu_history)}</div>
-                        <span class="cpu-value">${p.cpu_current.toFixed(1)}%</span>
-                    </div>
-                    <span class="status ${p.status}">${p.status}</span>
-                    <div class="actions">
-                        ${p.status === 'stopped' || p.is_broken ?
-                            `<button class="btn btn-start" onclick="action('start', '${p.name}')">Start</button>` :
-                            `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''}>Stop</button>`}
-                        <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''}>Restart</button>
-                        <button class="btn btn-logs" onclick="openLogModal('${p.name}')">Logs</button>
-                        ${p.uploaded ? `
-                            ${p.status === 'stopped' ? `<button class="btn btn-update" onclick="openUpdateModal('${p.name}')">Update</button>` : `<button class="btn btn-update btn-placeholder">Update</button>`}
-                            ${p.status === 'stopped' ? `<button class="btn btn-remove" onclick="removeProgram('${p.name}')">Remove</button>` : `<button class="btn btn-remove btn-placeholder">Remove</button>`}
-                        ` : `
-                            <button class="btn btn-update btn-placeholder">Update</button>
-                            <button class="btn btn-remove btn-placeholder">Remove</button>
-                        `}
+                    <div class="process-controls">
+                        <div class="cpu-container">
+                            <div class="cpu-chart">${renderSparkline(p.cpu_history)}</div>
+                            <span class="cpu-value">${p.cpu_current.toFixed(1)}%</span>
+                        </div>
+                        <span class="status ${p.status}">${p.status}</span>
+                        <div class="actions">
+                            ${p.status === 'stopped' || p.is_broken ?
+                                `<button class="btn btn-start" onclick="action('start', '${p.name}')">Start</button>` :
+                                `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''}>Stop</button>`}
+                            <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''}>Restart</button>
+                            <button class="btn btn-logs" onclick="openLogModal('${p.name}')">Logs</button>
+                            ${p.uploaded ? `
+                                ${p.status === 'stopped' ? `<button class="btn btn-update" onclick="openUpdateModal('${p.name}')">Update</button>` : `<button class="btn btn-update btn-placeholder">Update</button>`}
+                                ${p.status === 'stopped' ? `<button class="btn btn-remove" onclick="removeProgram('${p.name}')">Remove</button>` : `<button class="btn btn-remove btn-placeholder">Remove</button>`}
+                            ` : `
+                                <button class="btn btn-update btn-placeholder">Update</button>
+                                <button class="btn btn-remove btn-placeholder">Remove</button>
+                            `}
+                        </div>
                     </div>
                 </div>
             `).join('');
