@@ -36,6 +36,8 @@ class ProcessInfo:
     script: str
     enabled: bool = True
     venv_path: str = None  # Optional: program-specific venv path
+    cwd: str = None  # Optional: working directory for the process
+    args: list = None  # Optional: command-line arguments
     process: subprocess.Popen = None
     pid: int = None  # Store PID separately for persistence
     status: str = "stopped"
@@ -93,17 +95,26 @@ class ProcessManager:
         for prog in self.config.get("programs", []):
             name = prog["name"]
             program_venv_path = prog.get("venv_path")  # Can be None
+            program_cwd = prog.get("cwd")  # Can be None
+            program_args = prog.get("args")  # Can be None or list
+            # Ensure args is a list
+            if program_args is not None and not isinstance(program_args, list):
+                program_args = [str(program_args)]
             if name not in self.processes:
                 self.processes[name] = ProcessInfo(
                     name=name,
                     script=prog["script"],
                     enabled=prog.get("enabled", True),
-                    venv_path=program_venv_path
+                    venv_path=program_venv_path,
+                    cwd=program_cwd,
+                    args=program_args
                 )
             else:
                 self.processes[name].script = prog["script"]
                 self.processes[name].enabled = prog.get("enabled", True)
                 self.processes[name].venv_path = program_venv_path
+                self.processes[name].cwd = program_cwd
+                self.processes[name].args = program_args
 
     def save_pids(self):
         """Save current process PIDs to file for persistence."""
@@ -251,7 +262,17 @@ class ProcessManager:
             print(f"[{info.name}] Disabled, not starting")
             return
 
-        script_path = self.base_dir / info.script
+        # Determine working directory
+        if info.cwd:
+            cwd_path = Path(info.cwd)
+            if not cwd_path.is_absolute():
+                cwd_path = self.base_dir / cwd_path
+            work_dir = cwd_path
+        else:
+            work_dir = self.base_dir
+
+        # Resolve script path relative to cwd (if set) or base_dir
+        script_path = work_dir / info.script
         if not script_path.exists():
             print(f"[{info.name}] Script not found: {script_path}")
             info.status = "error"
@@ -260,11 +281,16 @@ class ProcessManager:
         log_file = self.base_dir / f"{self.sanitize_filename(info.name)}.log"
         venv_python = self.get_venv_python(info)
 
+        # Build command with optional arguments
+        cmd = [str(venv_python), str(script_path)]
+        if info.args:
+            cmd.extend([str(arg) for arg in info.args])
+
         try:
             with open(log_file, "a") as log:
                 info.process = subprocess.Popen(
-                    [str(venv_python), str(script_path)],
-                    cwd=str(self.base_dir),
+                    cmd,
+                    cwd=work_dir,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     start_new_session=True

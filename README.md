@@ -69,6 +69,8 @@ programs:
     script: my_app.py
     enabled: true
     # venv_path: ".venv"  # Optional: program-specific venv
+    # cwd: "/path/to/workdir"  # Optional: working directory
+    # args: ["--port", "8080"]  # Optional: command-line arguments
 ```
 
 ### Configuration Options
@@ -95,6 +97,8 @@ programs:
 - `script` - Python script path (relative to config file)
 - `enabled` - Auto-start on manager launch (default: true)
 - `venv_path` - Optional per-program venv override
+- `cwd` - Working directory for the process (relative or absolute)
+- `args` - Command-line arguments to pass to the script (list or single value)
 
 ## Usage
 
@@ -201,6 +205,23 @@ programs:
   - name: "Modern App"
     script: new_app.py
     venv_path: ".venv-python311" # Python 3.11 environment
+```
+
+### Working Directory and Arguments
+
+Run scripts with specific working directories and command-line arguments:
+
+```yaml
+programs:
+  - name: "Web Server"
+    script: server.py
+    cwd: "/var/www/myapp"        # Process runs in this directory
+    args: ["--host", "0.0.0.0", "--port", "8080"]
+
+  - name: "Data Processor"
+    script: process_data.py
+    cwd: "data"                  # Relative to process_manager.yaml
+    args: "--verbose"            # Single argument (string also works)
 ```
 
 ### Running in Production
