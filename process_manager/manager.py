@@ -125,9 +125,13 @@ class ProcessManager:
             program_venv_path = prog.get("venv_path")
             program_cwd = prog.get("cwd")
             program_args = prog.get("args")
+            program_environment = prog.get("environment")
             # Ensure args is a list
             if program_args is not None and not isinstance(program_args, list):
                 program_args = [str(program_args)]
+            # Ensure environment is a list
+            if program_environment is not None and not isinstance(program_environment, list):
+                program_environment = [str(program_environment)]
             if name not in self.processes:
                 self.processes[name] = ProcessInfo(
                     name=name,
@@ -136,7 +140,8 @@ class ProcessManager:
                     uploaded=False,  # Manual programs are not uploaded
                     venv_path=program_venv_path,
                     cwd=program_cwd,
-                    args=program_args
+                    args=program_args,
+                    environment=program_environment
                 )
             else:
                 self.processes[name].script = prog["script"]
@@ -145,6 +150,7 @@ class ProcessManager:
                 self.processes[name].venv_path = program_venv_path
                 self.processes[name].cwd = program_cwd
                 self.processes[name].args = program_args
+                self.processes[name].environment = program_environment
 
         # Load uploaded programs from uploaded_programs.yaml
         for prog in self.uploaded_config.get("programs", []):
@@ -152,9 +158,13 @@ class ProcessManager:
             program_venv_path = prog.get("venv_path")
             program_cwd = prog.get("cwd")
             program_args = prog.get("args")
+            program_environment = prog.get("environment")
             # Ensure args is a list
             if program_args is not None and not isinstance(program_args, list):
                 program_args = [str(program_args)]
+            # Ensure environment is a list
+            if program_environment is not None and not isinstance(program_environment, list):
+                program_environment = [str(program_environment)]
             if name not in self.processes:
                 self.processes[name] = ProcessInfo(
                     name=name,
@@ -163,7 +173,8 @@ class ProcessManager:
                     uploaded=True,  # All programs from uploaded config are uploaded
                     venv_path=program_venv_path,
                     cwd=program_cwd,
-                    args=program_args
+                    args=program_args,
+                    environment=program_environment
                 )
             else:
                 # Update existing process (shouldn't happen, but handle it)
@@ -173,6 +184,7 @@ class ProcessManager:
                 self.processes[name].venv_path = program_venv_path
                 self.processes[name].cwd = program_cwd
                 self.processes[name].args = program_args
+                self.processes[name].environment = program_environment
 
     def save_config(self):
         """Save manual (non-uploaded) programs to main config file."""
@@ -194,6 +206,8 @@ class ProcessManager:
                     prog["cwd"] = info.cwd
                 if info.args:
                     prog["args"] = info.args
+                if info.environment:
+                    prog["environment"] = info.environment
                 programs_config.append(prog)
 
         self.config["programs"] = programs_config
@@ -225,6 +239,8 @@ class ProcessManager:
                     prog["cwd"] = info.cwd
                 if info.args:
                     prog["args"] = info.args
+                if info.environment:
+                    prog["environment"] = info.environment
                 programs_config.append(prog)
 
         self.uploaded_config["programs"] = programs_config
@@ -408,6 +424,14 @@ class ProcessManager:
         if info.args:
             cmd.extend([str(arg) for arg in info.args])
 
+        # Build environment variables
+        env = os.environ.copy()
+        if info.environment:
+            for env_var in info.environment:
+                if '=' in env_var:
+                    key, value = env_var.split('=', 1)
+                    env[key] = value
+
         try:
             with open(log_file, "a") as log:
                 info.process = subprocess.Popen(
@@ -415,6 +439,7 @@ class ProcessManager:
                     cwd=work_dir,
                     stdout=log,
                     stderr=subprocess.STDOUT,
+                    env=env,
                     start_new_session=True
                 )
             info.pid = info.process.pid
@@ -453,6 +478,7 @@ class ProcessManager:
         self.save_pids()  # Update PID file after stopping
 
     def monitor_processes(self):
+        pid_save_counter = 0
         while self.running:
             with self.lock:
                 for info in self.processes.values():
@@ -507,6 +533,12 @@ class ProcessManager:
                 for info in self.processes.values():
                     self.collect_cpu_usage(info)
                     self.rotate_log_if_needed(info)
+
+                # Periodically save PIDs (every 10 seconds) to ensure persistence
+                pid_save_counter += 1
+                if pid_save_counter >= 10:
+                    self.save_pids()
+                    pid_save_counter = 0
 
             time.sleep(1)
 
@@ -694,7 +726,7 @@ class ProcessManager:
         except Exception as e:
             return {"error": str(e), "content": None}
 
-    def upload_program(self, name: str, zip_data: bytes, script: str, enabled: bool = True, args: list = None) -> dict:
+    def upload_program(self, name: str, zip_data: bytes, script: str, enabled: bool = True, args: list = None, environment: list = None) -> dict:
         """Upload a new program from ZIP file.
 
         Returns: {"success": bool, "message": str}
@@ -733,6 +765,7 @@ class ProcessManager:
                     venv_path=str(program_dir / ".venv"),
                     cwd=str(program_dir),
                     args=args,
+                    environment=environment,
                     status="installing"
                 )
             # Save config outside lock to avoid deadlock

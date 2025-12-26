@@ -170,6 +170,8 @@ class WebHandler(BaseHTTPRequestHandler):
             enabled = 'enabled' in fields
             args_str = fields.get('args', '')
             args = [arg.strip() for arg in args_str.split() if arg.strip()] if args_str else None
+            env_str = fields.get('environment', '')
+            environment = [line.strip() for line in env_str.split('\n') if line.strip()] if env_str else None
 
             # Get ZIP file
             if 'zipfile' not in files:
@@ -190,7 +192,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 return
 
             # Upload program
-            result = self.manager.upload_program(name, zip_data, script, enabled, args)
+            result = self.manager.upload_program(name, zip_data, script, enabled, args, environment)
 
             self.send_response(200 if result["success"] else 400)
             self.send_header("Content-type", "application/json")

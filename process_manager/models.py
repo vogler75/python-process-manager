@@ -27,6 +27,7 @@ class ProcessInfo:
     venv_path: str = None  # Optional: program-specific venv path
     cwd: str = None  # Optional: working directory for the process
     args: list = None  # Optional: command-line arguments
+    environment: list = None  # Optional: environment variables as list of "KEY=VALUE" strings
     process: subprocess.Popen = None
     pid: int = None  # Store PID separately for persistence
     status: str = "stopped"

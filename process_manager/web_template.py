@@ -227,8 +227,9 @@ def get_html(title: str = "Process Manager") -> str:
         .upload-modal { max-width: 600px; height: auto; max-height: 80vh; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; color: #00d4ff; font-weight: 500; font-size: 0.9em; }
-        .form-group input[type="text"], .form-group input[type="file"] { width: 100%; padding: 10px; background: rgba(13, 20, 33, 0.8); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; color: #eee; font-size: 0.9em; }
-        .form-group input[type="text"]:focus, .form-group input[type="file"]:focus { outline: none; border-color: rgba(0, 212, 255, 0.6); }
+        .form-group input[type="text"], .form-group input[type="file"], .form-group textarea { width: 100%; padding: 10px; background: rgba(13, 20, 33, 0.8); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; color: #eee; font-size: 0.9em; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; }
+        .form-group input[type="text"]:focus, .form-group input[type="file"]:focus, .form-group textarea:focus { outline: none; border-color: rgba(0, 212, 255, 0.6); }
+        .form-group textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
         .form-group input[type="checkbox"] { margin-right: 8px; }
         .form-group .hint { font-size: 0.8em; color: #888; margin-top: 4px; }
         .upload-form-body { padding: 25px; max-height: 60vh; overflow-y: auto; }
@@ -330,6 +331,11 @@ def get_html(title: str = "Process Manager") -> str:
                         <label for="programArgs">Arguments (optional)</label>
                         <input type="text" id="programArgs" name="args" placeholder="--port 8000 --debug">
                         <div class="hint">Space-separated command-line arguments</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="programEnvironment">Environment Variables (optional)</label>
+                        <textarea id="programEnvironment" name="environment" rows="4" placeholder="PYTHONUNBUFFERED=TRUE&#10;DTU_HOST=192.168.1.132&#10;UPDATE_EVERY=45"></textarea>
+                        <div class="hint">One environment variable per line in KEY=VALUE format</div>
                     </div>
                     <div class="form-group">
                         <label>

@@ -80,6 +80,9 @@ programs:
     # venv_path: ".venv"  # Optional: program-specific venv
     # cwd: "/path/to/workdir"  # Optional: working directory
     # args: ["--port", "8080"]  # Optional: command-line arguments
+    # environment:  # Optional: environment variables
+    #   - PYTHONUNBUFFERED=TRUE
+    #   - API_KEY=your-key-here
 ```
 
 ### Configuration Options
@@ -108,6 +111,20 @@ programs:
 - Can be a single value: `"--verbose"`
 - Only available per-program (no global setting)
 
+#### Environment Variables (`environment`)
+- Environment variables set for the process
+- List of `KEY=VALUE` strings
+- Each program can have its own environment variables
+- Merged with system environment (program-specific vars take precedence)
+- Example:
+  ```yaml
+  environment:
+    - PYTHONUNBUFFERED=TRUE
+    - DTU_HOST=192.168.1.132
+    - UPDATE_EVERY=45
+  ```
+- Only available per-program (no global setting)
+
 #### Restart Behavior
 - `delay_seconds` - Delay before restarting a failed process
 - `max_consecutive_failures` - Maximum failures before marking as broken
@@ -123,6 +140,7 @@ programs:
 - `venv_path` - Override global venv for this program
 - `cwd` - Override global cwd for this program
 - `args` - Command-line arguments (list or single string)
+- `environment` - Environment variables (list of KEY=VALUE strings)
 
 ## Usage
 
@@ -375,8 +393,9 @@ Process IDs are saved to `process_manager.pids.json`. When the manager restarts:
 │       ├── main.py
 │       ├── requirements.txt
 │       └── ...
-├── {program_name}.log          # Process log files (auto-generated)
-└── {program_name}.log.1        # Rotated log files (auto-generated)
+└── log/                        # Log directory (auto-generated)
+    ├── {program_name}.log      # Process log files
+    └── {program_name}.log.1    # Rotated log files
 ```
 
 ### Configuration Files
@@ -453,6 +472,32 @@ programs:
     args: "--verbose"
 ```
 
+### Environment Variables
+
+Set environment variables for your programs:
+
+```yaml
+programs:
+  - name: "Data Collector"
+    script: collector.py
+    environment:
+      - PYTHONUNBUFFERED=TRUE        # Disable Python output buffering
+      - DTU_HOST=192.168.1.132       # Custom application config
+      - UPDATE_EVERY=45              # Polling interval
+      - LOG_LEVEL=INFO               # Logging verbosity
+      - API_KEY=your-api-key-here    # API credentials
+
+  - name: "Production API"
+    script: api.py
+    environment:
+      - PYTHONUNBUFFERED=TRUE
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://localhost/mydb
+      - REDIS_URL=redis://localhost:6379
+```
+
+Environment variables are merged with the system environment, with program-specific variables taking precedence.
+
 ### Running in Production
 
 #### Using systemd (Linux)
@@ -470,15 +515,33 @@ User=your-user
 WorkingDirectory=/path/to/process-manager
 ExecStart=/path/to/.venv/bin/python -m process_manager
 Restart=always
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+**Important: `KillMode=process`**
+
+The `KillMode=process` setting is **critical** - it tells systemd to only kill the process manager itself, not the managed Python programs. Without this:
+- `systemctl stop` or `systemctl restart` will kill all your managed programs
+- Defeats the purpose of process persistence
+
+With `KillMode=process`:
+- Only the manager is stopped/restarted
+- Managed programs keep running
+- Manager reconnects to them on restart
+
 Enable and start:
 ```bash
 sudo systemctl enable process-manager
 sudo systemctl start process-manager
+```
+
+Reload after changes:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart process-manager
 ```
 
 #### Using screen/tmux
