@@ -9,7 +9,10 @@ A lightweight, self-contained process manager for Python applications with a bea
 - **CPU Monitoring** - Real-time CPU usage tracking with sparkline charts (requires psutil)
 - **Log Management** - Automatic log rotation with built-in log viewer
 - **Persistent State** - Processes survive manager restarts
-- **Virtual Environment Support** - Global or per-program venv configuration
+- **Flexible Configuration** - Global settings with per-program overrides for venv, cwd, and args
+- **Virtual Environment Support** - Global or per-program Python venv configuration
+- **Working Directory Control** - Set cwd globally or per-program; scripts resolved relative to cwd
+- **Command-Line Arguments** - Pass args to scripts as list or string
 - **Zero Dependencies UI** - No external JavaScript frameworks, pure HTML/CSS/JS
 - **Graceful Shutdown** - Manager stops without killing managed processes
 
@@ -83,13 +86,24 @@ programs:
 - `port` - HTTP port for the web interface
 - `title` - Custom title displayed in the dashboard
 
-#### Virtual Environment
-- `venv_path` - Global Python venv path (default: `.venv`)
-- Per-program `venv_path` - Override global venv for specific programs
+#### Virtual Environment (`venv_path`)
+- **Global**: Set at top level, applies to all programs (default: `.venv`)
+- **Per-program**: Override in program config for specific programs
+- Path can be relative (to config file) or absolute
+- Priority: **program venv_path > global venv_path**
 
-#### Working Directory
-- `cwd` - Global working directory for all programs (scripts resolved relative to this)
-- Per-program `cwd` - Override global cwd for specific programs
+#### Working Directory (`cwd`)
+- **Global**: Set at top level, applies to all programs
+- **Per-program**: Override in program config for specific programs
+- Scripts are resolved relative to the working directory
+- Path can be relative (to config file) or absolute
+- Priority: **program cwd > global cwd > config file directory**
+
+#### Arguments (`args`)
+- Command-line arguments passed to the script
+- Can be a list: `["--port", "8080", "--verbose"]`
+- Can be a single value: `"--verbose"`
+- Only available per-program (no global setting)
 
 #### Restart Behavior
 - `delay_seconds` - Delay before restarting a failed process
@@ -101,11 +115,11 @@ programs:
 
 #### Programs
 - `name` - Display name in the UI
-- `script` - Python script path (relative to config file)
+- `script` - Python script path (resolved relative to `cwd` if set, otherwise config directory)
 - `enabled` - Auto-start on manager launch (default: true)
-- `venv_path` - Optional per-program venv override
-- `cwd` - Working directory for the process (relative or absolute)
-- `args` - Command-line arguments to pass to the script (list or single value)
+- `venv_path` - Override global venv for this program
+- `cwd` - Override global cwd for this program
+- `args` - Command-line arguments (list or single string)
 
 ## Usage
 
@@ -199,36 +213,68 @@ Process IDs are saved to `process_manager.pids.json`. When the manager restarts:
 
 ## Advanced Usage
 
-### Custom Virtual Environments
+### Global Settings with Per-Program Overrides
 
-Use different Python environments for different programs:
+Set defaults at the top level and override for specific programs:
 
 ```yaml
-programs:
-  - name: "Legacy App"
-    script: old_app.py
-    venv_path: ".venv-python37"  # Python 3.7 environment
+# Global settings - apply to all programs unless overridden
+venv_path: ".venv"
+cwd: "/data/apps/myproject"
 
-  - name: "Modern App"
-    script: new_app.py
-    venv_path: ".venv-python311" # Python 3.11 environment
+programs:
+  # Uses global venv and cwd
+  - name: "Main App"
+    script: main.py
+    args: ["--config", "prod.yaml"]
+
+  # Uses global cwd, but different venv
+  - name: "Legacy App"
+    script: legacy.py
+    venv_path: ".venv-python37"
+
+  # Uses global venv, but different cwd
+  - name: "Admin Tool"
+    script: admin.py
+    cwd: "/data/apps/admin"
+    args: "--verbose"
 ```
 
-### Working Directory and Arguments
+### Working Directory and Script Resolution
 
-Run scripts with specific working directories and command-line arguments:
+The `cwd` setting controls both:
+1. Where the script file is looked up
+2. The working directory when the process runs
+
+```yaml
+cwd: "/data/apps/trading"  # Global cwd
+
+programs:
+  # Script resolved as: /data/apps/trading/streamer.py
+  - name: "Streamer"
+    script: streamer.py
+
+  # Script resolved as: /data/apps/tools/monitor.py (cwd override)
+  - name: "Monitor"
+    script: monitor.py
+    cwd: "/data/apps/tools"
+```
+
+### Command-Line Arguments
+
+Pass arguments to your scripts:
 
 ```yaml
 programs:
+  # List format (recommended for multiple args)
   - name: "Web Server"
     script: server.py
-    cwd: "/var/www/myapp"        # Process runs in this directory
-    args: ["--host", "0.0.0.0", "--port", "8080"]
+    args: ["--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
 
-  - name: "Data Processor"
-    script: process_data.py
-    cwd: "data"                  # Relative to process_manager.yaml
-    args: "--verbose"            # Single argument (string also works)
+  # String format (convenience for single arg)
+  - name: "Worker"
+    script: worker.py
+    args: "--verbose"
 ```
 
 ### Running in Production
