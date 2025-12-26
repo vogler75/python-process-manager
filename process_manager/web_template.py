@@ -1,0 +1,470 @@
+"""
+Web UI template for Process Manager.
+
+Copyright (C) 2025 Andreas Vogler
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+"""
+
+
+def get_html(title: str = "Process Manager") -> str:
+    html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Process Manager - {{TITLE}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            background-attachment: fixed;
+            color: #eee;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* Main Frame */
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+            background: rgba(22, 33, 62, 0.6);
+            border-radius: 16px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 60px rgba(0, 212, 255, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.05) 100%);
+            padding: 20px 25px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #00d4ff;
+            font-size: 1.5em;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+            margin: 0;
+        }
+        .header-subtitle {
+            color: #888;
+            font-size: 0.85em;
+        }
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #4caf50;
+            font-size: 0.85em;
+        }
+        .header-status .dot {
+            width: 8px;
+            height: 8px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .header-status.warning { color: #ff9800; }
+        .header-status.warning .dot { background: #ff9800; animation: pulse-warning 2s infinite; }
+        .header-status.error { color: #f44336; }
+        .header-status.error .dot { background: #f44336; animation: pulse-error 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+        }
+        @keyframes pulse-warning {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(255, 152, 0, 0); }
+        }
+        @keyframes pulse-error {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(244, 67, 54, 0); }
+        }
+
+        /* Process List */
+        .process-list {
+            padding: 20px;
+        }
+        .process {
+            background: rgba(13, 20, 33, 0.6);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+        .process:hover {
+            background: rgba(13, 20, 33, 0.8);
+            border-color: rgba(0, 212, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        .process-info { flex: 1; min-width: 200px; }
+        .process-name { font-weight: 600; font-size: 1.1em; color: #fff; }
+        .process-script { color: #666; font-size: 0.85em; margin-top: 2px; }
+        .process-meta { font-size: 0.8em; color: #888; margin-top: 6px; }
+
+        /* Status Badges */
+        .status {
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status.running { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.3); }
+        .status.stopped { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+        .status.stopping { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
+        .status.broken { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+        .status.restarting { background: rgba(33, 150, 243, 0.2); color: #2196f3; border: 1px solid rgba(33, 150, 243, 0.3); }
+        .status.error { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
+
+        /* Buttons */
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { background: #444; cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: none; }
+        .btn-start { background: linear-gradient(135deg, #4caf50, #45a049); color: white; }
+        .btn-stop { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; }
+        .btn-restart { background: linear-gradient(135deg, #2196f3, #1976d2); color: white; }
+        .btn-logs { background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }
+
+        /* Footer */
+        .footer {
+            padding: 15px 25px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #666;
+            font-size: 0.8em;
+            text-align: center;
+        }
+
+        .log-size { color: #666; font-size: 0.75em; margin-left: 8px; }
+
+        /* CPU Chart Styles */
+        .cpu-container { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+        .cpu-chart {
+            width: 80px;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .cpu-chart svg { display: block; }
+        .cpu-value { font-size: 0.9em; color: #4caf50; font-weight: 600; min-width: 50px; text-align: right; }
+
+        /* Log Modal Styles */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; justify-content: center; align-items: center; }
+        .modal {
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 1200px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(0, 212, 255, 0.1);
+        }
+        .modal-header {
+            padding: 18px 25px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(90deg, rgba(0, 212, 255, 0.1) 0%, transparent 100%);
+        }
+        .modal-header h2 { color: #00d4ff; font-size: 1.2em; text-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
+        .modal-close { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: all 0.2s; }
+        .modal-close:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4); }
+        .modal-controls { padding: 12px 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: rgba(0, 0, 0, 0.2); }
+        .modal-controls button { padding: 7px 14px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: 500; transition: all 0.2s; }
+        .modal-controls button:hover { transform: translateY(-1px); }
+        .modal-controls .nav-btn { background: linear-gradient(135deg, #2196f3, #1976d2); color: white; }
+        .modal-controls .nav-btn:disabled { background: #444; cursor: not-allowed; transform: none; }
+        .modal-controls .refresh-btn { background: linear-gradient(135deg, #4caf50, #45a049); color: white; }
+        .modal-controls .tail-btn { background: linear-gradient(135deg, #ff9800, #f57c00); color: white; }
+        .modal-controls .tail-btn.active { background: linear-gradient(135deg, #e65100, #bf360c); }
+        .modal-info { color: #888; font-size: 0.85em; margin-left: auto; }
+        .modal-body { flex: 1; overflow: auto; padding: 0; }
+        .log-content { font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; padding: 20px; margin: 0; background: rgba(13, 20, 33, 0.8); color: #e0e0e0; min-height: 100%; }
+        .log-loading { color: #888; padding: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>Process Manager</h1>
+                <span class="header-subtitle">{{TITLE}}</span>
+            </div>
+            <div class="header-status" id="headerStatus">
+                <span class="dot"></span>
+                <span>Loading...</span>
+            </div>
+        </div>
+        <div class="process-list" id="processes"></div>
+        <div class="footer">
+            Auto-refreshes every 2 seconds
+        </div>
+    </div>
+
+    <!-- Log Viewer Modal -->
+    <div id="logModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="logModalTitle">Logs</h2>
+                <button class="modal-close" onclick="closeLogModal()">Close</button>
+            </div>
+            <div class="modal-controls">
+                <button class="nav-btn" id="btnOlder" onclick="loadOlder()">Older</button>
+                <button class="nav-btn" id="btnNewer" onclick="loadNewer()">Newer</button>
+                <button class="refresh-btn" onclick="refreshLogs()">Refresh</button>
+                <button class="tail-btn" id="btnTail" onclick="toggleTail()">Auto-refresh: OFF</button>
+                <span class="modal-info" id="logInfo"></span>
+            </div>
+            <div class="modal-body">
+                <pre class="log-content" id="logContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLogProcess = null;
+        let currentOffset = 0;
+        let linesPerPage = 200;
+        let totalLines = 0;
+        let tailInterval = null;
+
+        function renderSparkline(data) {
+            if (!data || data.length === 0) {
+                return '<svg width="80" height="24"></svg>';
+            }
+
+            const width = 80;
+            const height = 24;
+            const padding = 2;
+            const maxVal = Math.max(...data, 10); // At least 10% scale for visibility
+
+            // Take last 30 points for display (30 seconds of history)
+            const displayData = data.slice(-30);
+            const stepX = (width - padding * 2) / Math.max(displayData.length - 1, 1);
+
+            // Generate path points
+            const points = displayData.map((val, i) => {
+                const x = padding + i * stepX;
+                const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                return `${x},${y}`;
+            }).join(' ');
+
+            // Color based on average CPU usage
+            const avg = displayData.reduce((a, b) => a + b, 0) / displayData.length;
+            let color = '#4caf50'; // Green
+            if (avg > 50) color = '#ff9800'; // Orange
+            if (avg > 80) color = '#f44336'; // Red
+
+            return `<svg width="${width}" height="${height}">
+                <polyline fill="none" stroke="${color}" stroke-width="1.5" points="${points}"/>
+            </svg>`;
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                render(data);
+            } catch (e) {
+                console.error('Failed to fetch status:', e);
+            }
+        }
+
+        function render(processes) {
+            const container = document.getElementById('processes');
+            container.innerHTML = processes.map(p => `
+                <div class="process">
+                    <div class="process-info">
+                        <div class="process-name">${p.name}${p.log_size_display ? `<span class="log-size">(Log: ${p.log_size_display})</span>` : ''}</div>
+                        <div class="process-script">${p.script}</div>
+                        <div class="process-meta">
+                            ${p.pid ? `PID: ${p.pid}` : ''}
+                            ${p.uptime ? ` | Uptime: ${p.uptime}` : ''}
+                            ${p.total_restarts ? ` | Restarts: ${p.total_restarts}` : ''}
+                            ${p.is_broken ? ` | Failures: ${p.consecutive_failures}` : ''}
+                        </div>
+                    </div>
+                    <div class="cpu-container">
+                        <div class="cpu-chart">${renderSparkline(p.cpu_history)}</div>
+                        <span class="cpu-value">${p.cpu_current.toFixed(1)}%</span>
+                    </div>
+                    <span class="status ${p.status}">${p.status}</span>
+                    <div class="actions">
+                        ${p.status === 'stopped' || p.is_broken ?
+                            `<button class="btn btn-start" onclick="action('start', '${p.name}')">Start</button>` :
+                            `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''}>Stop</button>`}
+                        <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''}>Restart</button>
+                        <button class="btn btn-logs" onclick="openLogModal('${p.name}')">Logs</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update header status
+            updateHeaderStatus(processes);
+        }
+
+        function updateHeaderStatus(processes) {
+            const header = document.getElementById('headerStatus');
+            const total = processes.length;
+            const running = processes.filter(p => p.status === 'running').length;
+            const broken = processes.filter(p => p.is_broken).length;
+
+            let statusClass = '';
+            let statusText = '';
+
+            if (broken > 0) {
+                statusClass = 'error';
+                statusText = `${broken} Broken`;
+            } else if (running === total && total > 0) {
+                statusClass = '';
+                statusText = `All Running (${running}/${total})`;
+            } else if (running > 0) {
+                statusClass = 'warning';
+                statusText = `${running}/${total} Running`;
+            } else {
+                statusClass = 'error';
+                statusText = 'All Stopped';
+            }
+
+            header.className = 'header-status ' + statusClass;
+            header.innerHTML = `<span class="dot"></span><span>${statusText}</span>`;
+        }
+
+        async function action(type, name) {
+            await fetch(`/api/${type}/${encodeURIComponent(name)}`, { method: 'POST' });
+            fetchStatus();
+        }
+
+        function openLogModal(name) {
+            currentLogProcess = name;
+            currentOffset = 0;
+            document.getElementById('logModal').classList.add('active');
+            document.getElementById('logModalTitle').textContent = `Logs: ${name}`;
+            loadLogs();
+        }
+
+        function closeLogModal() {
+            document.getElementById('logModal').classList.remove('active');
+            currentLogProcess = null;
+            stopTail();
+        }
+
+        async function loadLogs() {
+            const content = document.getElementById('logContent');
+            const info = document.getElementById('logInfo');
+            content.textContent = 'Loading...';
+
+            try {
+                const res = await fetch(`/api/logs/${encodeURIComponent(currentLogProcess)}?lines=${linesPerPage}&offset=${currentOffset}`);
+                const data = await res.json();
+
+                if (data.error) {
+                    content.textContent = `Error: ${data.error}`;
+                    return;
+                }
+
+                totalLines = data.total_lines;
+                content.textContent = data.content || '(empty log)';
+                info.textContent = `Lines ${data.start_line}-${data.end_line} of ${data.total_lines}`;
+
+                document.getElementById('btnOlder').disabled = !data.has_more;
+                document.getElementById('btnNewer').disabled = currentOffset === 0;
+
+                // Scroll to bottom when viewing latest logs
+                if (currentOffset === 0) {
+                    const body = document.querySelector('.modal-body');
+                    body.scrollTop = body.scrollHeight;
+                }
+            } catch (e) {
+                content.textContent = `Failed to load logs: ${e.message}`;
+            }
+        }
+
+        function loadOlder() {
+            currentOffset += linesPerPage;
+            if (currentOffset > totalLines - linesPerPage) {
+                currentOffset = Math.max(0, totalLines - linesPerPage);
+            }
+            loadLogs();
+        }
+
+        function loadNewer() {
+            currentOffset -= linesPerPage;
+            if (currentOffset < 0) currentOffset = 0;
+            loadLogs();
+        }
+
+        function refreshLogs() {
+            currentOffset = 0;
+            loadLogs();
+        }
+
+        function toggleTail() {
+            const btn = document.getElementById('btnTail');
+            if (tailInterval) {
+                stopTail();
+            } else {
+                tailInterval = setInterval(() => {
+                    if (currentOffset === 0) {
+                        loadLogs();
+                    }
+                }, 2000);
+                btn.textContent = 'Auto-refresh: ON';
+                btn.classList.add('active');
+            }
+        }
+
+        function stopTail() {
+            if (tailInterval) {
+                clearInterval(tailInterval);
+                tailInterval = null;
+            }
+            const btn = document.getElementById('btnTail');
+            btn.textContent = 'Auto-refresh: OFF';
+            btn.classList.remove('active');
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('logModal').classList.contains('active')) {
+                closeLogModal();
+            }
+        });
+
+        fetchStatus();
+        setInterval(fetchStatus, 2000);
+    </script>
+</body>
+</html>"""
+    return html.replace("{{TITLE}}", title)

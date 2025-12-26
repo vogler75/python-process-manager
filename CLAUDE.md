@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Python Process Manager is a lightweight, single-file process manager with an embedded web dashboard. It manages multiple Python programs, provides auto-restart on crashes, and serves a real-time web UI for monitoring and control.
+Python Process Manager is a lightweight process manager with an embedded web dashboard. It manages multiple Python programs, provides auto-restart on crashes, and serves a real-time web UI for monitoring and control.
 
 ## Running the Application
 
@@ -12,21 +12,36 @@ Python Process Manager is a lightweight, single-file process manager with an emb
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the manager
-python3 process_manager.py
+# Run the manager (as a module)
+python3 -m process_manager
+
+# Or using the old single-file script (if it exists)
+# python3 process_manager.py
 
 # Web UI available at http://localhost:10000 (or configured host/port)
 ```
 
-There are no separate build, lint, or test commands - this is a single-file application.
+There are no separate build, lint, or test commands - this is a straightforward Python package.
 
 ## Architecture
 
-The entire application lives in `process_manager.py` (~1,100 lines):
+The application is organized as a Python package in `process_manager/`:
 
-1. **ProcessInfo** (dataclass) - Represents a managed process with state, metrics, and failure tracking
-2. **ProcessManager** - Core orchestrator handling process lifecycle, monitoring, logging, and persistence
-3. **WebHandler** - HTTP request handler serving both the web UI and REST API (embedded HTML/CSS/JS)
+```
+process_manager/
+├── __init__.py         # Package exports
+├── __main__.py         # Entry point (signal handling, HTTP server setup)
+├── models.py           # ProcessInfo dataclass (state, metrics, failure tracking)
+├── manager.py          # ProcessManager (lifecycle, monitoring, logging, persistence)
+├── web_handler.py      # WebHandler (HTTP request routing, API endpoints)
+└── web_template.py     # HTML/CSS/JS template for web UI
+```
+
+Key components:
+1. **ProcessInfo** (models.py) - Represents a managed process with state, metrics, and failure tracking
+2. **ProcessManager** (manager.py) - Core orchestrator handling process lifecycle, monitoring, logging, and persistence
+3. **WebHandler** (web_handler.py) - HTTP request handler serving both the web UI and REST API
+4. **get_html()** (web_template.py) - Embedded HTML/CSS/JS for the web dashboard
 
 ### Threading Model
 - Main thread runs the HTTP server
