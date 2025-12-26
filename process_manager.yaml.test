@@ -1,0 +1,28 @@
+# Process Manager Configuration
+web_ui:
+  host: "127.0.0.1"
+  port: 10000
+  title: "Process Manager"
+
+venv: ".venv"
+
+restart:
+  delay_seconds: 1
+  max_consecutive_failures: 10
+  failure_reset_seconds: 60
+
+logging:
+  max_size_mb: 10
+
+programs:
+  - name: "Test Program 1"
+    script: "test_program_1.py"
+    enabled: true
+
+  - name: "Test Program 2"
+    script: "test_program_2.py"
+    enabled: true
+
+  - name: "Test Program 3"
+    script: "test_program_3.py"
+    enabled: true

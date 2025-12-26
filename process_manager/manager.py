@@ -33,6 +33,8 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     print("Warning: psutil not installed, CPU monitoring disabled")
 
+IS_WINDOWS = sys.platform == "win32"
+
 # Constants for uploaded programs
 UPLOADED_PROGRAMS_DIR = "uploaded_programs"
 MAX_UPLOAD_SIZE_MB = 50
@@ -95,7 +97,10 @@ class ProcessManager:
         if not venv_obj.is_absolute():
             venv_obj = self.base_dir / venv_obj
 
-        self.venv_python = venv_obj / "bin" / "python"
+        if IS_WINDOWS:
+            self.venv_python = venv_obj / "Scripts" / "python.exe"
+        else:
+            self.venv_python = venv_obj / "bin" / "python"
 
         # Verify venv exists
         if not self.venv_python.exists():
@@ -315,13 +320,30 @@ class ProcessManager:
         if pid is None:
             return False
         try:
-            os.kill(pid, 0)  # Signal 0 doesn't kill, just checks if process exists
-            return True
-        except ProcessLookupError:
+            if IS_WINDOWS:
+                # Signal 0 is not supported on Windows os.kill() in some Python versions
+                # or behaves differently. subprocess.Popen.poll() is better if we have the object.
+                # For PID check, we can use psutil or tasklist.
+                if PSUTIL_AVAILABLE:
+                    return psutil.pid_exists(pid)
+                else:
+                    # Fallback for Windows without psutil
+                    output = subprocess.check_output(
+                        ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                        text=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW if IS_WINDOWS else 0
+                    )
+                    return str(pid) in output
+            else:
+                os.kill(pid, 0)  # Signal 0 doesn't kill, just checks if process exists
+                return True
+        except (ProcessLookupError, subprocess.CalledProcessError):
             return False
         except PermissionError:
             # Process exists but we don't have permission (shouldn't happen for our own processes)
             return True
+        except Exception:
+            return False
 
     def get_venv_python(self, info: ProcessInfo) -> Path:
         """Get the Python executable path for a process.
@@ -331,7 +353,11 @@ class ProcessManager:
             venv_obj = Path(info.venv)
             if not venv_obj.is_absolute():
                 venv_obj = self.base_dir / venv_obj
-            return venv_obj / "bin" / "python"
+            
+            if IS_WINDOWS:
+                return venv_obj / "Scripts" / "python.exe"
+            else:
+                return venv_obj / "bin" / "python"
         else:
             # Use global venv
             return self.venv_python
@@ -433,6 +459,11 @@ class ProcessManager:
                     env[key] = value
 
         try:
+            # Creation flags for Windows to ensure process group for termination
+            creationflags = 0
+            if IS_WINDOWS:
+                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+            
             with open(log_file, "a") as log:
                 info.process = subprocess.Popen(
                     cmd,
@@ -440,7 +471,8 @@ class ProcessManager:
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     env=env,
-                    start_new_session=True
+                    start_new_session=not IS_WINDOWS,
+                    creationflags=creationflags
                 )
             info.pid = info.process.pid
             info.status = "running"
@@ -457,20 +489,26 @@ class ProcessManager:
         if pid_to_stop and self.is_process_alive(pid_to_stop):
             info.status = "stopping"  # Show stopping status while waiting
             try:
-                os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
-                # Wait for process to terminate
-                for _ in range(50):  # 5 seconds max
-                    if not self.is_process_alive(pid_to_stop):
-                        break
-                    time.sleep(0.1)
+                if IS_WINDOWS:
+                    # On Windows, we use taskkill to kill the process tree
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)], 
+                                 capture_output=True, 
+                                 creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
-                    # Force kill if still alive
-                    try:
-                        os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-            except ProcessLookupError:
-                pass
+                    os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
+                    # Wait for process to terminate
+                    for _ in range(50):  # 5 seconds max
+                        if not self.is_process_alive(pid_to_stop):
+                            break
+                        time.sleep(0.1)
+                    else:
+                        # Force kill if still alive
+                        try:
+                            os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+            except Exception as e:
+                print(f"[{info.name}] Error stopping process: {e}")
 
         info.process = None
         info.pid = None
@@ -603,19 +641,24 @@ class ProcessManager:
 
         if pid_to_stop and self.is_process_alive(pid_to_stop):
             try:
-                os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
-                for _ in range(50):  # 5 seconds max
-                    if not self.is_process_alive(pid_to_stop):
-                        break
-                    time.sleep(0.1)
+                if IS_WINDOWS:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)], 
+                                 capture_output=True, 
+                                 creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
-                    # Force kill if still alive
-                    try:
-                        os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-            except ProcessLookupError:
-                pass
+                    os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
+                    for _ in range(50):  # 5 seconds max
+                        if not self.is_process_alive(pid_to_stop):
+                            break
+                        time.sleep(0.1)
+                    else:
+                        # Force kill if still alive
+                        try:
+                            os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+            except Exception as e:
+                print(f"[{info.name}] Error in restart: {e}")
 
         with self.lock:
             info.process = None
@@ -653,20 +696,25 @@ class ProcessManager:
 
         if pid_to_stop and self.is_process_alive(pid_to_stop):
             try:
-                os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
-                # Wait for process to terminate
-                for _ in range(50):  # 5 seconds max
-                    if not self.is_process_alive(pid_to_stop):
-                        break
-                    time.sleep(0.1)
+                if IS_WINDOWS:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)], 
+                                 capture_output=True, 
+                                 creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
-                    # Force kill if still alive
-                    try:
-                        os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-            except ProcessLookupError:
-                pass
+                    os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
+                    # Wait for process to terminate
+                    for _ in range(50):  # 5 seconds max
+                        if not self.is_process_alive(pid_to_stop):
+                            break
+                        time.sleep(0.1)
+                    else:
+                        # Force kill if still alive
+                        try:
+                            os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+            except Exception as e:
+                print(f"[{info.name}] Error in stop: {e}")
 
         with self.lock:
             info.process = None
@@ -1107,7 +1155,11 @@ class ProcessManager:
 
     def _install_requirements(self, program_dir: Path, log_file: Path = None) -> dict:
         """Install requirements.txt in the program's virtual environment."""
-        venv_python = program_dir / ".venv" / "bin" / "python"
+        if IS_WINDOWS:
+            venv_python = program_dir / ".venv" / "Scripts" / "python.exe"
+        else:
+            venv_python = program_dir / ".venv" / "bin" / "python"
+        
         requirements_file = program_dir / "requirements.txt"
 
         if not venv_python.exists():
