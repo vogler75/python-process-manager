@@ -31,19 +31,20 @@ programs:
   - name: "Coinbase to Kafka"
     script: coinbase_to_kafka.py
     enabled: true
-    # venv_path: ".venv"  # Optional: use program-specific venv, defaults to global venv_path
+    cwd: "/data/production/trading/trading-coinbase"
+    venv_path: "/data/production/trading/trading-coinbase/.venv"  # Optional: use program-specific venv, defaults to global venv_path
+    # args: []  # Optional: command-line arguments
 
   - name: "Kafka to QuestDB"
     script: kafka_to_questdb.py
     enabled: true
-    # venv_path: ".venv"  # Optional: use program-specific venv, defaults to global venv_path
+    cwd: "/data/production/trading/trading-coinbase"
+    venv_path: "/data/production/trading/trading-coinbase/.venv"  # Optional: use program-specific venv, defaults to global venv_path
+    # args: []  # Optional: command-line arguments
 
   - name: "Kafka to MQTT"
     script: kafka_to_mqtt.py
     enabled: true
-    # venv_path: ".venv"  # Optional: use program-specific venv, defaults to global venv_path
-
-  - name: "Autotrader"
-    script: run_autotrader.py
-    enabled: false
-    # venv_path: ".venv"  # Optional: use program-specific venv, defaults to global venv_path
+    cwd: "/data/production/trading/trading-coinbase"
+    venv_path: "/data/production/trading/trading-coinbase/.venv"  # Optional: use program-specific venv, defaults to global venv_path
+    # args: []  # Optional: command-line arguments
