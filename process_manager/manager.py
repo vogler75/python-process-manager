@@ -478,7 +478,6 @@ class ProcessManager:
         self.save_pids()  # Update PID file after stopping
 
     def monitor_processes(self):
-        pid_save_counter = 0
         while self.running:
             with self.lock:
                 for info in self.processes.values():
@@ -533,12 +532,6 @@ class ProcessManager:
                 for info in self.processes.values():
                     self.collect_cpu_usage(info)
                     self.rotate_log_if_needed(info)
-
-                # Periodically save PIDs (every 10 seconds) to ensure persistence
-                pid_save_counter += 1
-                if pid_save_counter >= 10:
-                    self.save_pids()
-                    pid_save_counter = 0
 
             time.sleep(1)
 
