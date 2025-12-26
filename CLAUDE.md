@@ -53,22 +53,47 @@ Key components:
 - `GET /api/status` - JSON status of all processes
 - `GET /api/logs/{name}?lines=100&offset=0` - Paginated log content
 - `POST /api/start|stop|restart/{name}` - Process control
+- `POST /api/upload` - Upload new program (multipart form data)
+- `POST /api/update/{name}` - Update existing uploaded program
+- `POST /api/remove/{name}` - Remove uploaded program
 
 ### Process States
 `stopped` → `running` → `restarting` (auto) → `broken` (after max failures)
+`installing` → `running` (for uploaded programs during background installation)
 
 ### Configuration
-Edit `process_manager.yaml`:
+
+The application uses two configuration files:
+
+**`process_manager.yaml`** - Main configuration and manually configured programs:
 - `web_ui`: host, port, title
 - `venv_path`: global Python venv (can override per-program)
 - `cwd`: global working directory (can override per-program)
 - `restart`: delay, max_consecutive_failures, failure_reset_seconds
 - `logging`: max_size_mb for log rotation
-- `programs`: list of {name, script, enabled, venv_path, cwd, args}
+- `programs`: list of manually configured programs {name, script, enabled, venv_path, cwd, args}
+
+**`uploaded_programs.yaml`** - Auto-managed programs uploaded via web UI:
+- `programs`: list of uploaded programs {name, script, enabled, venv_path, cwd, args}
+- This file is created automatically when the first program is uploaded
+- Managed entirely by the application - do not edit manually
+- Programs in this file can be removed via the web UI
+
+**Separation Benefits:**
+- Manual programs in `process_manager.yaml` are protected from UI removal
+- Uploaded programs are cleanly separated and managed programmatically
+- Reduces risk of accidental config corruption
+- Clearer distinction between manual and managed programs
 
 ## Runtime Files (Generated)
 
 - `process_manager.pids.json` - Saved process states for persistence across restarts
+- `uploaded_programs.yaml` - Auto-managed programs (created on first upload)
+- `uploaded_programs/` - Directory containing uploaded program files
+  - `{program_name}/` - Each uploaded program gets its own directory
+    - `.venv/` - Isolated virtual environment
+    - `*.py` - Program source files
+    - `requirements.txt` - Dependencies (optional)
 - `{program_name}.log` - Process output logs
 - `{program_name}.log.1` - Rotated log files
 

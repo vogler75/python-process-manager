@@ -1,0 +1,6 @@
+programs:
+- name: Test
+  script: app.py
+  enabled: false
+  venv_path: /Users/vogler/Workspace/python-process-manager/uploaded_programs/Test/.venv
+  cwd: /Users/vogler/Workspace/python-process-manager/uploaded_programs/Test

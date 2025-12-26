@@ -130,6 +130,7 @@ def get_html(title: str = "Process Manager") -> str:
         .status.stopping { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
         .status.broken { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
         .status.restarting { background: rgba(33, 150, 243, 0.2); color: #2196f3; border: 1px solid rgba(33, 150, 243, 0.3); }
+        .status.installing { background: rgba(156, 39, 176, 0.2); color: #9c27b0; border: 1px solid rgba(156, 39, 176, 0.3); }
         .status.error { background: rgba(255, 152, 0, 0.2); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3); }
 
         /* Buttons */
@@ -150,6 +151,10 @@ def get_html(title: str = "Process Manager") -> str:
         .btn-stop { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; }
         .btn-restart { background: linear-gradient(135deg, #2196f3, #1976d2); color: white; }
         .btn-logs { background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }
+        .btn-remove { background: linear-gradient(135deg, #ff5722, #e64a19); color: white; }
+        .btn-update { background: linear-gradient(135deg, #ff9800, #f57c00); color: white; }
+        .btn-upload-header { background: linear-gradient(135deg, #00bcd4, #0097a7); color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s ease; }
+        .btn-upload-header:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 188, 212, 0.4); }
 
         /* Footer */
         .footer {
@@ -212,6 +217,22 @@ def get_html(title: str = "Process Manager") -> str:
         .modal-body { flex: 1; overflow: auto; padding: 0; }
         .log-content { font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; padding: 20px; margin: 0; background: rgba(13, 20, 33, 0.8); color: #e0e0e0; min-height: 100%; }
         .log-loading { color: #888; padding: 20px; text-align: center; }
+
+        /* Upload Modal Styles */
+        .upload-modal { max-width: 600px; height: auto; max-height: 80vh; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #00d4ff; font-weight: 500; font-size: 0.9em; }
+        .form-group input[type="text"], .form-group input[type="file"] { width: 100%; padding: 10px; background: rgba(13, 20, 33, 0.8); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; color: #eee; font-size: 0.9em; }
+        .form-group input[type="text"]:focus, .form-group input[type="file"]:focus { outline: none; border-color: rgba(0, 212, 255, 0.6); }
+        .form-group input[type="checkbox"] { margin-right: 8px; }
+        .form-group .hint { font-size: 0.8em; color: #888; margin-top: 4px; }
+        .upload-form-body { padding: 25px; max-height: 60vh; overflow-y: auto; }
+        .upload-status { padding: 15px; margin-top: 15px; border-radius: 6px; font-size: 0.9em; display: none; }
+        .upload-status.success { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.3); }
+        .upload-status.error { background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); }
+        .btn-submit { background: linear-gradient(135deg, #4caf50, #45a049); color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; transition: all 0.2s; width: 100%; }
+        .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4); }
+        .btn-submit:disabled { background: #444; cursor: not-allowed; transform: none; }
     </style>
 </head>
 <body>
@@ -221,9 +242,12 @@ def get_html(title: str = "Process Manager") -> str:
                 <h1>Process Manager</h1>
                 <span class="header-subtitle">{{TITLE}}</span>
             </div>
-            <div class="header-status" id="headerStatus">
-                <span class="dot"></span>
-                <span>Loading...</span>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="btn btn-upload-header" onclick="openUploadModal()">+ Upload Program</button>
+                <div class="header-status" id="headerStatus">
+                    <span class="dot"></span>
+                    <span>Loading...</span>
+                </div>
             </div>
         </div>
         <div class="process-list" id="processes"></div>
@@ -248,6 +272,48 @@ def get_html(title: str = "Process Manager") -> str:
             </div>
             <div class="modal-body">
                 <pre class="log-content" id="logContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Program Modal -->
+    <div id="uploadModal" class="modal-overlay">
+        <div class="modal upload-modal">
+            <div class="modal-header">
+                <h2 id="uploadModalTitle">Upload Program</h2>
+                <button class="modal-close" onclick="closeUploadModal()">Close</button>
+            </div>
+            <div class="upload-form-body">
+                <form id="uploadForm" onsubmit="handleUpload(event)">
+                    <div class="form-group">
+                        <label for="programName">Program Name *</label>
+                        <input type="text" id="programName" name="name" required placeholder="My Application">
+                        <div class="hint">Unique name for this program</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="scriptFile">Entry Script *</label>
+                        <input type="text" id="scriptFile" name="script" required placeholder="main.py">
+                        <div class="hint">Python script to execute (e.g., main.py, app.py)</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="zipFile">ZIP File *</label>
+                        <input type="file" id="zipFile" name="zipfile" accept=".zip" required>
+                        <div class="hint">ZIP archive containing your Python program (max 50MB)</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="programArgs">Arguments (optional)</label>
+                        <input type="text" id="programArgs" name="args" placeholder="--port 8000, --debug">
+                        <div class="hint">Comma-separated command-line arguments</div>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="programEnabled" name="enabled" checked>
+                            Start automatically after upload
+                        </label>
+                    </div>
+                    <div class="upload-status" id="uploadStatus"></div>
+                    <button type="submit" class="btn-submit" id="uploadBtn">Upload Program</button>
+                </form>
             </div>
         </div>
     </div>
@@ -326,6 +392,10 @@ def get_html(title: str = "Process Manager") -> str:
                             `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''}>Stop</button>`}
                         <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''}>Restart</button>
                         <button class="btn btn-logs" onclick="openLogModal('${p.name}')">Logs</button>
+                        ${p.uploaded ? `
+                            ${p.status === 'stopped' ? `<button class="btn btn-update" onclick="openUpdateModal('${p.name}')">Update</button>` : ''}
+                            ${p.status === 'stopped' ? `<button class="btn btn-remove" onclick="removeProgram('${p.name}')">Remove</button>` : ''}
+                        ` : ''}
                     </div>
                 </div>
             `).join('');
@@ -457,10 +527,116 @@ def get_html(title: str = "Process Manager") -> str:
 
         // Close modal on Escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && document.getElementById('logModal').classList.contains('active')) {
-                closeLogModal();
+            if (e.key === 'Escape') {
+                if (document.getElementById('logModal').classList.contains('active')) {
+                    closeLogModal();
+                }
+                if (document.getElementById('uploadModal').classList.contains('active')) {
+                    closeUploadModal();
+                }
             }
         });
+
+        // Upload Modal Functions
+        let isUpdateMode = false;
+        let updateProgramName = null;
+
+        function openUploadModal() {
+            isUpdateMode = false;
+            updateProgramName = null;
+            document.getElementById('uploadModalTitle').textContent = 'Upload Program';
+            document.getElementById('uploadForm').reset();
+            document.getElementById('programName').disabled = false;
+            document.getElementById('scriptFile').disabled = false;
+            document.getElementById('uploadBtn').textContent = 'Upload Program';
+            document.getElementById('uploadStatus').style.display = 'none';
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function openUpdateModal(name) {
+            isUpdateMode = true;
+            updateProgramName = name;
+            document.getElementById('uploadModalTitle').textContent = `Update Program: ${name}`;
+            document.getElementById('uploadForm').reset();
+            document.getElementById('programName').value = name;
+            document.getElementById('programName').disabled = true;
+            document.getElementById('scriptFile').disabled = true;
+            document.getElementById('uploadBtn').textContent = 'Update Program';
+            document.getElementById('uploadStatus').style.display = 'none';
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            isUpdateMode = false;
+            updateProgramName = null;
+        }
+
+        async function handleUpload(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const uploadBtn = document.getElementById('uploadBtn');
+            const statusDiv = document.getElementById('uploadStatus');
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = isUpdateMode ? 'Updating...' : 'Uploading...';
+            statusDiv.style.display = 'none';
+
+            try {
+                const url = isUpdateMode ? `/api/update/${encodeURIComponent(updateProgramName)}` : '/api/upload';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                statusDiv.style.display = 'block';
+                if (result.success) {
+                    statusDiv.className = 'upload-status success';
+                    statusDiv.textContent = result.message + ' The program is now installing in the background. Check logs to see progress.';
+                    form.reset();
+                    setTimeout(() => {
+                        closeUploadModal();
+                        fetchStatus();
+                    }, 2000);
+                } else {
+                    statusDiv.className = 'upload-status error';
+                    statusDiv.textContent = result.message;
+                }
+            } catch (error) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'upload-status error';
+                statusDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = isUpdateMode ? 'Update Program' : 'Upload Program';
+            }
+        }
+
+        async function removeProgram(name) {
+            if (!confirm(`Are you sure you want to remove "${name}"? This will delete all files and cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/remove/${encodeURIComponent(name)}`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    fetchStatus();
+                } else {
+                    alert(`Failed to remove: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
 
         fetchStatus();
         setInterval(fetchStatus, 2000);

@@ -134,8 +134,10 @@ dmypy.json
 .DS_Store
 
 # Process Manager specific files
+*.zip
 *.log
 *.log.*
 nohup.out
 process_manager.pids.json
 process_manager.yaml
+uploaded_programs

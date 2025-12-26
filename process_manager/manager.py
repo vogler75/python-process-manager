@@ -13,9 +13,12 @@ import subprocess
 import threading
 import time
 import signal
+import sys
 import os
 import re
 import shutil
+import zipfile
+import tempfile
 from pathlib import Path
 from datetime import datetime
 import json
@@ -30,23 +33,34 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     print("Warning: psutil not installed, CPU monitoring disabled")
 
+# Constants for uploaded programs
+UPLOADED_PROGRAMS_DIR = "uploaded_programs"
+MAX_UPLOAD_SIZE_MB = 50
+
 
 class ProcessManager:
     def __init__(self, config_path: str = "process_manager.yaml"):
         self.base_dir = Path(__file__).parent.parent.resolve()
         self.config_path = self.base_dir / config_path
+        self.uploaded_config_path = self.base_dir / "uploaded_programs.yaml"
         self.pid_file = self.base_dir / "process_manager.pids.json"
+        self.uploaded_dir = self.base_dir / UPLOADED_PROGRAMS_DIR
         self.processes: dict[str, ProcessInfo] = {}
         self.running = True
         self.lock = threading.Lock()
         self.config = {}
+        self.uploaded_config = {}
         self.venv_python = None  # Will be set in load_config()
         self.global_cwd = None  # Will be set in load_config()
+
+        # Create uploaded programs directory if it doesn't exist
+        self.uploaded_dir.mkdir(exist_ok=True)
 
         self.load_config()
         self.restore_processes()
 
     def load_config(self):
+        # Load main configuration
         with open(self.config_path) as f:
             self.config = yaml.safe_load(f)
 
@@ -83,11 +97,19 @@ class ProcessManager:
         else:
             self.global_cwd = None
 
+        # Load uploaded programs configuration (may not exist yet)
+        if self.uploaded_config_path.exists():
+            with open(self.uploaded_config_path) as f:
+                self.uploaded_config = yaml.safe_load(f) or {}
+        else:
+            self.uploaded_config = {}
+
+        # Load manual programs from main config
         for prog in self.config.get("programs", []):
             name = prog["name"]
-            program_venv_path = prog.get("venv_path")  # Can be None
-            program_cwd = prog.get("cwd")  # Can be None
-            program_args = prog.get("args")  # Can be None or list
+            program_venv_path = prog.get("venv_path")
+            program_cwd = prog.get("cwd")
+            program_args = prog.get("args")
             # Ensure args is a list
             if program_args is not None and not isinstance(program_args, list):
                 program_args = [str(program_args)]
@@ -96,6 +118,7 @@ class ProcessManager:
                     name=name,
                     script=prog["script"],
                     enabled=prog.get("enabled", True),
+                    uploaded=False,  # Manual programs are not uploaded
                     venv_path=program_venv_path,
                     cwd=program_cwd,
                     args=program_args
@@ -103,9 +126,100 @@ class ProcessManager:
             else:
                 self.processes[name].script = prog["script"]
                 self.processes[name].enabled = prog.get("enabled", True)
+                self.processes[name].uploaded = False
                 self.processes[name].venv_path = program_venv_path
                 self.processes[name].cwd = program_cwd
                 self.processes[name].args = program_args
+
+        # Load uploaded programs from uploaded_programs.yaml
+        for prog in self.uploaded_config.get("programs", []):
+            name = prog["name"]
+            program_venv_path = prog.get("venv_path")
+            program_cwd = prog.get("cwd")
+            program_args = prog.get("args")
+            # Ensure args is a list
+            if program_args is not None and not isinstance(program_args, list):
+                program_args = [str(program_args)]
+            if name not in self.processes:
+                self.processes[name] = ProcessInfo(
+                    name=name,
+                    script=prog["script"],
+                    enabled=prog.get("enabled", True),
+                    uploaded=True,  # All programs from uploaded config are uploaded
+                    venv_path=program_venv_path,
+                    cwd=program_cwd,
+                    args=program_args
+                )
+            else:
+                # Update existing process (shouldn't happen, but handle it)
+                self.processes[name].script = prog["script"]
+                self.processes[name].enabled = prog.get("enabled", True)
+                self.processes[name].uploaded = True
+                self.processes[name].venv_path = program_venv_path
+                self.processes[name].cwd = program_cwd
+                self.processes[name].args = program_args
+
+    def save_config(self):
+        """Save manual (non-uploaded) programs to main config file."""
+        programs_config = []
+        with self.lock:
+            for info in self.processes.values():
+                # Skip uploaded programs - they go in uploaded_programs.yaml
+                if info.uploaded:
+                    continue
+
+                prog = {
+                    "name": info.name,
+                    "script": info.script,
+                    "enabled": info.enabled,
+                }
+                if info.venv_path:
+                    prog["venv_path"] = info.venv_path
+                if info.cwd:
+                    prog["cwd"] = info.cwd
+                if info.args:
+                    prog["args"] = info.args
+                programs_config.append(prog)
+
+        self.config["programs"] = programs_config
+
+        try:
+            with open(self.config_path, "w") as f:
+                yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
+        except Exception as e:
+            print(f"Failed to save config: {e}")
+            raise
+
+    def save_uploaded_config(self):
+        """Save uploaded programs to uploaded_programs.yaml."""
+        programs_config = []
+        with self.lock:
+            for info in self.processes.values():
+                # Only save uploaded programs
+                if not info.uploaded:
+                    continue
+
+                prog = {
+                    "name": info.name,
+                    "script": info.script,
+                    "enabled": info.enabled,
+                }
+                if info.venv_path:
+                    prog["venv_path"] = info.venv_path
+                if info.cwd:
+                    prog["cwd"] = info.cwd
+                if info.args:
+                    prog["args"] = info.args
+                programs_config.append(prog)
+
+        self.uploaded_config["programs"] = programs_config
+
+        try:
+            with open(self.uploaded_config_path, "w") as f:
+                yaml.dump(self.uploaded_config, f, default_flow_style=False, sort_keys=False)
+        except Exception as e:
+            print(f"Failed to save uploaded config: {e}")
+            raise
 
     def save_pids(self):
         """Save current process PIDs to file for persistence."""
@@ -411,6 +525,7 @@ class ProcessManager:
                     "name": info.name,
                     "script": info.script,
                     "enabled": info.enabled,
+                    "uploaded": info.uploaded,
                     "status": info.status,
                     "pid": pid,
                     "uptime": uptime,
@@ -563,6 +678,449 @@ class ProcessManager:
             }
         except Exception as e:
             return {"error": str(e), "content": None}
+
+    def upload_program(self, name: str, zip_data: bytes, script: str, enabled: bool = True, args: list = None) -> dict:
+        """Upload a new program from ZIP file.
+
+        Returns: {"success": bool, "message": str}
+        """
+        with self.lock:
+            # Check for duplicate name
+            if name in self.processes:
+                return {"success": False, "message": f"Program '{name}' already exists. Use update to modify it."}
+
+            # Validate ZIP size
+            size_mb = len(zip_data) / (1024 * 1024)
+            if size_mb > MAX_UPLOAD_SIZE_MB:
+                return {"success": False, "message": f"ZIP file too large ({size_mb:.1f}MB). Maximum is {MAX_UPLOAD_SIZE_MB}MB."}
+
+        # Create program directory
+        program_dir = self.uploaded_dir / self.sanitize_filename(name)
+        try:
+            program_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            return {"success": False, "message": f"Directory for '{name}' already exists."}
+
+        try:
+            # Extract ZIP file first (quick operation)
+            result = self._extract_zip(zip_data, program_dir)
+            if not result["success"]:
+                shutil.rmtree(program_dir, ignore_errors=True)
+                return result
+
+            # Add to processes immediately with "installing" status
+            with self.lock:
+                self.processes[name] = ProcessInfo(
+                    name=name,
+                    script=script,
+                    enabled=enabled,
+                    uploaded=True,
+                    venv_path=str(program_dir / ".venv"),
+                    cwd=str(program_dir),
+                    args=args,
+                    status="installing"
+                )
+            # Save config outside lock to avoid deadlock
+            self.save_uploaded_config()
+
+            # Run installation in background thread
+            threading.Thread(
+                target=self._install_program_async,
+                args=(name, program_dir, enabled),
+                daemon=True
+            ).start()
+
+            return {"success": True, "message": f"Program '{name}' is being installed. Check logs for progress."}
+
+        except Exception as e:
+            shutil.rmtree(program_dir, ignore_errors=True)
+            return {"success": False, "message": f"Upload failed: {str(e)}"}
+
+    def _install_program_async(self, name: str, program_dir: Path, should_start: bool):
+        """Install program (venv + dependencies) in background thread."""
+        log_file = self.base_dir / f"{self.sanitize_filename(name)}.log"
+
+        try:
+            # Write initial log message
+            with open(log_file, "a") as log:
+                log.write(f"\n{'='*70}\n")
+                log.write(f"Program Upload: {name}\n")
+                log.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                log.write(f"Directory: {program_dir}\n")
+                log.write(f"{'='*70}\n\n")
+
+            # Create virtual environment
+            result = self._create_venv(program_dir, log_file)
+            if not result["success"]:
+                with self.lock:
+                    if name in self.processes:
+                        self.processes[name].status = "error"
+                with open(log_file, "a") as log:
+                    log.write(f"\n[FAILED] Installation failed: {result['message']}\n")
+                return
+
+            # Install dependencies if requirements.txt exists
+            requirements_file = program_dir / "requirements.txt"
+            if requirements_file.exists():
+                result = self._install_requirements(program_dir, log_file)
+                if not result["success"]:
+                    with self.lock:
+                        if name in self.processes:
+                            self.processes[name].status = "error"
+                    with open(log_file, "a") as log:
+                        log.write(f"\n[FAILED] Installation failed: {result['message']}\n")
+                    return
+            else:
+                with open(log_file, "a") as log:
+                    log.write(f"No requirements.txt found, skipping dependency installation.\n\n")
+
+            # Installation successful
+            with open(log_file, "a") as log:
+                log.write(f"\n{'='*70}\n")
+                log.write(f"[SUCCESS] Installation completed successfully!\n")
+                log.write(f"{'='*70}\n\n")
+
+            # Start the program if enabled
+            with self.lock:
+                if name in self.processes:
+                    info = self.processes[name]
+                    if should_start and info.enabled:
+                        self.start_process(info)
+                    else:
+                        info.status = "stopped"
+
+        except Exception as e:
+            with self.lock:
+                if name in self.processes:
+                    self.processes[name].status = "error"
+            with open(log_file, "a") as log:
+                log.write(f"\n[ERROR] Installation exception: {str(e)}\n")
+
+    def update_program(self, name: str, zip_data: bytes) -> dict:
+        """Update an existing uploaded program.
+
+        Returns: {"success": bool, "message": str}
+        """
+        with self.lock:
+            # Check if program exists
+            if name not in self.processes:
+                return {"success": False, "message": f"Program '{name}' not found."}
+
+            info = self.processes[name]
+
+            # Check if it's an uploaded program
+            if not info.uploaded:
+                return {"success": False, "message": f"Program '{name}' is not an uploaded program. Cannot update."}
+
+            # Check if it's stopped
+            if info.status != "stopped":
+                return {"success": False, "message": f"Program '{name}' must be stopped before updating."}
+
+            # Validate ZIP size
+            size_mb = len(zip_data) / (1024 * 1024)
+            if size_mb > MAX_UPLOAD_SIZE_MB:
+                return {"success": False, "message": f"ZIP file too large ({size_mb:.1f}MB). Maximum is {MAX_UPLOAD_SIZE_MB}MB."}
+
+        program_dir = self.uploaded_dir / self.sanitize_filename(name)
+
+        try:
+            # Backup current directory
+            backup_dir = program_dir.parent / f"{program_dir.name}.backup"
+            if backup_dir.exists():
+                shutil.rmtree(backup_dir)
+            shutil.copytree(program_dir, backup_dir)
+
+            # Clear existing files (except .venv)
+            venv_dir = program_dir / ".venv"
+            venv_backup = None
+            if venv_dir.exists():
+                venv_backup = program_dir.parent / f"{program_dir.name}.venv.backup"
+                if venv_backup.exists():
+                    shutil.rmtree(venv_backup)
+                shutil.move(str(venv_dir), str(venv_backup))
+
+            # Remove old files
+            for item in program_dir.iterdir():
+                if item.is_file():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+
+            # Restore .venv if it was backed up
+            if venv_backup and venv_backup.exists():
+                shutil.move(str(venv_backup), str(venv_dir))
+
+            # Extract new ZIP
+            result = self._extract_zip(zip_data, program_dir)
+            if not result["success"]:
+                # Restore backup
+                shutil.rmtree(program_dir, ignore_errors=True)
+                shutil.move(str(backup_dir), str(program_dir))
+                return result
+
+            # Set status to installing
+            with self.lock:
+                if name in self.processes:
+                    self.processes[name].status = "installing"
+
+            # Run installation in background (only if requirements.txt exists)
+            requirements_file = program_dir / "requirements.txt"
+            if requirements_file.exists():
+                threading.Thread(
+                    target=self._update_program_async,
+                    args=(name, program_dir, backup_dir),
+                    daemon=True
+                ).start()
+
+                return {"success": True, "message": f"Program '{name}' is being updated. Check logs for progress."}
+            else:
+                # No requirements.txt, update complete
+                shutil.rmtree(backup_dir, ignore_errors=True)
+                with self.lock:
+                    if name in self.processes:
+                        self.processes[name].status = "stopped"
+                return {"success": True, "message": f"Program '{name}' updated successfully (no dependencies to install)."}
+
+        except Exception as e:
+            # Restore backup if it exists
+            if backup_dir.exists():
+                shutil.rmtree(program_dir, ignore_errors=True)
+                shutil.move(str(backup_dir), str(program_dir))
+            return {"success": False, "message": f"Update failed: {str(e)}"}
+
+    def _update_program_async(self, name: str, program_dir: Path, backup_dir: Path):
+        """Update program dependencies in background thread."""
+        log_file = self.base_dir / f"{self.sanitize_filename(name)}.log"
+
+        try:
+            # Write initial log message
+            with open(log_file, "a") as log:
+                log.write(f"\n{'='*70}\n")
+                log.write(f"Program Update: {name}\n")
+                log.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                log.write(f"{'='*70}\n\n")
+
+            # Install dependencies
+            result = self._install_requirements(program_dir, log_file)
+            if not result["success"]:
+                # Restore backup
+                with open(log_file, "a") as log:
+                    log.write(f"\n[FAILED] Update failed, restoring backup...\n")
+                shutil.rmtree(program_dir, ignore_errors=True)
+                shutil.move(str(backup_dir), str(program_dir))
+                with self.lock:
+                    if name in self.processes:
+                        self.processes[name].status = "error"
+                return
+
+            # Update successful
+            with open(log_file, "a") as log:
+                log.write(f"\n{'='*70}\n")
+                log.write(f"[SUCCESS] Update completed successfully!\n")
+                log.write(f"{'='*70}\n\n")
+
+            # Remove backup
+            shutil.rmtree(backup_dir, ignore_errors=True)
+
+            # Set status to stopped
+            with self.lock:
+                if name in self.processes:
+                    self.processes[name].status = "stopped"
+
+        except Exception as e:
+            # Restore backup if it exists
+            if backup_dir.exists():
+                with open(log_file, "a") as log:
+                    log.write(f"\n[ERROR] Update exception, restoring backup: {str(e)}\n")
+                shutil.rmtree(program_dir, ignore_errors=True)
+                shutil.move(str(backup_dir), str(program_dir))
+            with self.lock:
+                if name in self.processes:
+                    self.processes[name].status = "error"
+
+    def remove_program(self, name: str) -> dict:
+        """Remove an uploaded program.
+
+        Returns: {"success": bool, "message": str}
+        """
+        with self.lock:
+            # Check if program exists
+            if name not in self.processes:
+                return {"success": False, "message": f"Program '{name}' not found."}
+
+            info = self.processes[name]
+
+            # Check if it's an uploaded program
+            if not info.uploaded:
+                return {"success": False, "message": f"Program '{name}' is not an uploaded program. Cannot remove."}
+
+            # Check if it's stopped
+            if info.status != "stopped":
+                return {"success": False, "message": f"Program '{name}' must be stopped before removal."}
+
+            # Remove from processes
+            del self.processes[name]
+
+        # Save config outside lock to avoid deadlock
+        self.save_uploaded_config()
+
+        # Remove program directory
+        program_dir = self.uploaded_dir / self.sanitize_filename(name)
+        try:
+            if program_dir.exists():
+                shutil.rmtree(program_dir)
+            return {"success": True, "message": f"Program '{name}' removed successfully."}
+        except Exception as e:
+            return {"success": False, "message": f"Failed to remove directory: {str(e)}"}
+
+    def _extract_zip(self, zip_data: bytes, target_dir: Path) -> dict:
+        """Extract ZIP file to target directory with security checks.
+
+        Automatically handles both ZIP structures:
+        - Files directly in ZIP root
+        - Single top-level directory containing all files (flattens automatically)
+        """
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_file:
+                tmp_file.write(zip_data)
+                tmp_path = tmp_file.name
+
+            try:
+                with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+                    # Security check: prevent path traversal
+                    for member in zip_ref.namelist():
+                        if member.startswith('/') or '..' in member:
+                            return {"success": False, "message": "Invalid ZIP file: contains unsafe paths."}
+
+                    # Extract all files
+                    zip_ref.extractall(target_dir)
+
+                # Check if there's a single top-level directory and flatten if needed
+                items = list(target_dir.iterdir())
+                if len(items) == 1 and items[0].is_dir():
+                    # Single directory - move contents up one level
+                    inner_dir = items[0]
+                    for item in inner_dir.iterdir():
+                        shutil.move(str(item), str(target_dir / item.name))
+                    # Remove now-empty directory
+                    inner_dir.rmdir()
+
+                return {"success": True, "message": "Extraction successful."}
+            finally:
+                os.unlink(tmp_path)
+
+        except zipfile.BadZipFile:
+            return {"success": False, "message": "Invalid ZIP file."}
+        except Exception as e:
+            return {"success": False, "message": f"Extraction failed: {str(e)}"}
+
+    def _create_venv(self, program_dir: Path, log_file: Path = None) -> dict:
+        """Create a virtual environment for the program."""
+        venv_dir = program_dir / ".venv"
+        try:
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n{'='*60}\n")
+                    log.write(f"Creating virtual environment...\n")
+                    log.write(f"Command: {sys.executable} -m venv {venv_dir}\n")
+                    log.write(f"{'='*60}\n")
+                    log.flush()
+
+                    result = subprocess.run(
+                        [sys.executable, "-m", "venv", str(venv_dir)],
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        timeout=60
+                    )
+            else:
+                result = subprocess.run(
+                    [sys.executable, "-m", "venv", str(venv_dir)],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+
+            if result.returncode != 0:
+                msg = "venv creation failed (see logs for details)" if log_file else f"venv creation failed: {result.stderr}"
+                if log_file:
+                    with open(log_file, "a") as log:
+                        log.write(f"\n[ERROR] venv creation failed with code {result.returncode}\n")
+                return {"success": False, "message": msg}
+
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n[SUCCESS] Virtual environment created successfully\n\n")
+
+            return {"success": True, "message": "Virtual environment created."}
+        except subprocess.TimeoutExpired:
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n[ERROR] venv creation timed out after 60 seconds\n")
+            return {"success": False, "message": "venv creation timed out."}
+        except Exception as e:
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n[ERROR] venv creation failed: {str(e)}\n")
+            return {"success": False, "message": f"venv creation failed: {str(e)}"}
+
+    def _install_requirements(self, program_dir: Path, log_file: Path = None) -> dict:
+        """Install requirements.txt in the program's virtual environment."""
+        venv_python = program_dir / ".venv" / "bin" / "python"
+        requirements_file = program_dir / "requirements.txt"
+
+        if not venv_python.exists():
+            return {"success": False, "message": "Virtual environment not found."}
+
+        try:
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"{'='*60}\n")
+                    log.write(f"Installing dependencies from requirements.txt...\n")
+                    log.write(f"Command: {venv_python} -m pip install -r {requirements_file}\n")
+                    log.write(f"{'='*60}\n")
+                    log.flush()
+
+                    result = subprocess.run(
+                        [str(venv_python), "-m", "pip", "install", "-r", str(requirements_file)],
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        timeout=300,  # 5 minutes max
+                        cwd=program_dir
+                    )
+            else:
+                result = subprocess.run(
+                    [str(venv_python), "-m", "pip", "install", "-r", str(requirements_file)],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    cwd=program_dir
+                )
+
+            if result.returncode != 0:
+                msg = "pip install failed (see logs for details)" if log_file else f"pip install failed: {result.stderr}"
+                if log_file:
+                    with open(log_file, "a") as log:
+                        log.write(f"\n[ERROR] pip install failed with code {result.returncode}\n")
+                return {"success": False, "message": msg}
+
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n[SUCCESS] Dependencies installed successfully\n")
+                    log.write(f"{'='*60}\n\n")
+
+            return {"success": True, "message": "Requirements installed."}
+        except subprocess.TimeoutExpired:
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n[ERROR] pip install timed out after 5 minutes\n")
+            return {"success": False, "message": "pip install timed out (>5 minutes)."}
+        except Exception as e:
+            if log_file:
+                with open(log_file, "a") as log:
+                    log.write(f"\n[ERROR] pip install failed: {str(e)}\n")
+            return {"success": False, "message": f"pip install failed: {str(e)}"}
 
     def shutdown(self):
         """Shutdown the process manager without stopping managed processes."""
