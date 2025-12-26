@@ -324,8 +324,8 @@ def get_html(title: str = "Process Manager") -> str:
                     </div>
                     <div class="form-group">
                         <label for="programArgs">Arguments (optional)</label>
-                        <input type="text" id="programArgs" name="args" placeholder="--port 8000, --debug">
-                        <div class="hint">Comma-separated command-line arguments</div>
+                        <input type="text" id="programArgs" name="args" placeholder="--port 8000 --debug">
+                        <div class="hint">Space-separated command-line arguments</div>
                     </div>
                     <div class="form-group">
                         <label>

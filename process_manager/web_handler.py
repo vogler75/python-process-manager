@@ -163,7 +163,7 @@ class WebHandler(BaseHTTPRequestHandler):
             # Checkbox only sends value when checked, nothing when unchecked
             enabled = 'enabled' in fields
             args_str = fields.get('args', '')
-            args = [arg.strip() for arg in args_str.split(',') if arg.strip()] if args_str else None
+            args = [arg.strip() for arg in args_str.split() if arg.strip()] if args_str else None
 
             # Get ZIP file
             if 'zipfile' not in files:
