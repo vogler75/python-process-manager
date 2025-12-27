@@ -46,7 +46,11 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Edit `manager.yaml` to configure your setup:
+Configuration is split into two files:
+- **`manager.yaml`** - Global settings (web UI, restart behavior, logging, venv)
+- **`progs.yaml`** - Program definitions (managed via web UI or manually)
+
+### Settings (`manager.yaml`)
 
 ```yaml
 # Web UI settings
@@ -70,18 +74,29 @@ restart:
 # Logging settings
 logging:
   max_size_mb: 10      # Log rotation threshold
+```
 
-# Programs to manage
+### Programs (`progs.yaml`)
+
+Programs are defined in a separate file and can be managed via the web UI:
+
+```yaml
 programs:
   - name: "My Application"
     script: my_app.py
     enabled: true
+    # comment: "Description of this program"  # Optional
     # venv: ".venv"  # Optional: program-specific venv
     # cwd: "/path/to/workdir"  # Optional: working directory
     # args: ["--port", "8080"]  # Optional: command-line arguments
     # environment:  # Optional: environment variables
     #   - PYTHONUNBUFFERED=TRUE
     #   - API_KEY=your-key-here
+
+  - name: "Background Worker"
+    script: worker.py
+    enabled: true
+    args: ["--queue", "default"]
 ```
 
 ### Configuration Options
