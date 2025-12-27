@@ -245,6 +245,7 @@ class ProcessManager:
                 info = self.processes[name]
                 info.pid = pid
                 info.status = "running"
+                info.enabled = True  # Enable monitoring for restored running processes
                 if saved.get("start_time"):
                     try:
                         info.start_time = datetime.fromisoformat(saved["start_time"])
@@ -608,25 +609,34 @@ class ProcessManager:
     def _restart_process_async(self, info: ProcessInfo):
         """Restart process in background thread."""
         pid_to_stop = info.process.pid if info.process else info.pid
+        have_popen = info.process is not None
 
         if pid_to_stop and self.is_process_alive(pid_to_stop):
             try:
                 if IS_WINDOWS:
-                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)], 
-                                 capture_output=True, 
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)],
+                                 capture_output=True,
                                  creationflags=subprocess.CREATE_NO_WINDOW)
-                else:
+                elif have_popen:
+                    # We started this process, can use process group
                     os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
-                    for _ in range(50):  # 5 seconds max
-                        if not self.is_process_alive(pid_to_stop):
-                            break
-                        time.sleep(0.1)
-                    else:
-                        # Force kill if still alive
-                        try:
+                else:
+                    # Restored process - use direct kill
+                    os.kill(pid_to_stop, signal.SIGTERM)
+
+                for _ in range(50):  # 5 seconds max
+                    if not self.is_process_alive(pid_to_stop):
+                        break
+                    time.sleep(0.1)
+                else:
+                    # Force kill if still alive
+                    try:
+                        if have_popen:
                             os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
+                        else:
+                            os.kill(pid_to_stop, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
             except Exception as e:
                 print(f"[{info.name}] Error in restart: {e}")
 
@@ -663,26 +673,35 @@ class ProcessManager:
     def _stop_process_async(self, info: ProcessInfo):
         """Stop process in background thread."""
         pid_to_stop = info.process.pid if info.process else info.pid
+        have_popen = info.process is not None
 
         if pid_to_stop and self.is_process_alive(pid_to_stop):
             try:
                 if IS_WINDOWS:
-                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)], 
-                                 capture_output=True, 
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid_to_stop)],
+                                 capture_output=True,
                                  creationflags=subprocess.CREATE_NO_WINDOW)
-                else:
+                elif have_popen:
+                    # We started this process, can use process group
                     os.killpg(os.getpgid(pid_to_stop), signal.SIGTERM)
-                    # Wait for process to terminate
-                    for _ in range(50):  # 5 seconds max
-                        if not self.is_process_alive(pid_to_stop):
-                            break
-                        time.sleep(0.1)
-                    else:
-                        # Force kill if still alive
-                        try:
+                else:
+                    # Restored process - use direct kill (process group may not be accessible)
+                    os.kill(pid_to_stop, signal.SIGTERM)
+
+                # Wait for process to terminate
+                for _ in range(50):  # 5 seconds max
+                    if not self.is_process_alive(pid_to_stop):
+                        break
+                    time.sleep(0.1)
+                else:
+                    # Force kill if still alive
+                    try:
+                        if have_popen:
                             os.killpg(os.getpgid(pid_to_stop), signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
+                        else:
+                            os.kill(pid_to_stop, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
             except Exception as e:
                 print(f"[{info.name}] Error in stop: {e}")
 
