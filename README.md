@@ -46,7 +46,7 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Edit `process_manager.yaml` to configure your setup:
+Edit `manager.yaml` to configure your setup:
 
 ```yaml
 # Web UI settings
@@ -146,11 +146,11 @@ programs:
 ### Starting the Manager
 
 ```bash
-python3 -m process_manager
+python3 -m manager
 ```
 
 The manager will:
-1. Load configuration from `process_manager.yaml` and `uploaded_programs.yaml`
+1. Load settings from `manager.yaml` and programs from `progs.yaml`
 2. Restore any previously running processes
 3. Start all enabled programs
 4. Launch the web UI
@@ -200,19 +200,25 @@ On next startup, the manager will reconnect to running processes.
 - **File Info** - Shows line ranges and total size
 - **Keyboard Shortcuts** - Press `Esc` to close modal
 
-## Uploading Programs
+## Adding Programs
 
-### Upload via Web UI
+### Add via Web UI
 
-Click the **"+ Upload Program"** button in the top right to upload a new Python program:
+Click the **"+ New Program"** button in the top right to add a new Python program:
 
 1. **Name** - Display name for the program
 2. **Script** - Main Python file to run (e.g., `main.py`, `app.py`)
-3. **ZIP File** - Select a ZIP file containing your program files
-4. **Arguments** - Optional command-line arguments (comma-separated)
-5. **Start automatically** - Check to auto-start after installation
+3. **ZIP File** (optional) - Select a ZIP file containing your program files
+4. **Comment** (optional) - Description or notes about the program
+5. **Arguments** - Optional command-line arguments
+6. **Environment Variables** - Optional KEY=VALUE pairs (one per line)
+7. **Start automatically** - Check to auto-start after adding
 
-Click **"Upload Program"** and the manager will:
+**Two modes:**
+- **With ZIP file**: Creates an uploaded program with isolated venv and installs dependencies
+- **Without ZIP file**: Creates a manual program referencing existing scripts on disk
+
+When uploading with a ZIP file, the manager will:
 - Extract the ZIP file to `uploaded_programs/{Program_Name}/`
 - Create a dedicated virtual environment at `.venv/`
 - Install dependencies from `requirements.txt` (if present)
@@ -282,32 +288,33 @@ Successfully installed requests-2.31.0
 ==================================================================
 ```
 
-### Managing Uploaded Programs
+### Managing Programs
 
-Uploaded programs have additional controls:
+All programs can be edited and removed via the web UI:
 
-- **Update** - Upload a new ZIP to replace the program (only when stopped)
-- **Remove** - Delete the program and its files (only when stopped)
+- **Edit** - Modify program settings (name, script, args, environment, etc.)
+- **Remove** - Delete the program from configuration (only when stopped)
 
-**Update Process:**
-1. Stop the program
-2. Click **"Update"** button
-3. Upload new ZIP file
-4. Files are replaced and dependencies reinstalled
-5. Start the program when ready
+For uploaded programs, the Edit dialog also allows:
+- **Update Code** - Upload a new ZIP to replace program files (keeps venv)
+
+**Edit Process:**
+1. Click **"Edit"** button on the program
+2. Modify settings as needed
+3. For uploaded programs: optionally upload a new ZIP file
+4. Click **"Save Changes"**
 
 **Remove Process:**
 1. Stop the program
 2. Click **"Remove"** button
 3. Confirm deletion
-4. Program and directory are deleted
+4. Program is removed from config (uploaded programs also delete files)
 
 ### Size Limits and Restrictions
 
 - **Maximum ZIP size**: 50 MB
 - **Security**: Path traversal attacks are prevented (no `..` or `/` in paths)
-- **Name conflicts**: Cannot upload if name already exists (use Update instead)
-- **Modification**: Only uploaded programs can be updated/removed (manual config entries are protected)
+- **Name conflicts**: Cannot add if name already exists (use Edit to modify)
 
 ### Creating a Test Program
 
@@ -366,7 +373,7 @@ When a log file exceeds `max_size_mb`, it's copied to `{name}.log.1` and truncat
 
 ### Process Persistence
 
-Process IDs are saved to `process_manager.pids.json`. When the manager restarts:
+Process IDs are saved to `manager.pids.json`. When the manager restarts:
 - It checks if processes are still running
 - Reconnects to running processes
 - Starts stopped processes if enabled
@@ -375,17 +382,17 @@ Process IDs are saved to `process_manager.pids.json`. When the manager restarts:
 
 ```
 .
-├── process_manager/            # Main application package
+├── manager/                    # Main application package
 │   ├── __init__.py
 │   ├── __main__.py
 │   ├── models.py
 │   ├── manager.py
 │   ├── web_handler.py
 │   └── web_template.py
-├── process_manager.yaml        # Configuration for manual programs
-├── uploaded_programs.yaml      # Configuration for uploaded programs (auto-generated)
+├── manager.yaml                # Settings configuration (web UI, restart, logging, venv)
+├── progs.yaml                  # All program definitions (auto-managed)
 ├── requirements.txt            # Python dependencies
-├── process_manager.pids.json   # Saved process states (auto-generated)
+├── manager.pids.json           # Saved process states (auto-generated)
 ├── uploaded_programs/          # Uploaded program files (auto-generated)
 │   └── {Program_Name}/
 │       ├── .venv/              # Program-specific virtual environment
@@ -399,11 +406,10 @@ Process IDs are saved to `process_manager.pids.json`. When the manager restarts:
 
 ### Configuration Files
 
-- **`process_manager.yaml`** - Main configuration and manually configured programs
-- **`uploaded_programs.yaml`** - Auto-managed programs uploaded via web UI
-  - Created automatically when first program is uploaded
-  - Managed entirely by the application
-  - Programs can be removed via web UI
+- **`manager.yaml`** - Settings only (web UI, restart behavior, logging, global venv/cwd)
+- **`progs.yaml`** - All program definitions (both manual and uploaded)
+  - Managed via web UI (Edit, Add, Remove)
+  - Can also be edited manually when the manager is not running
 
 ## Advanced Usage
 
@@ -512,7 +518,7 @@ After=network.target
 Type=simple
 User=your-user
 WorkingDirectory=/path/to/process-manager
-ExecStart=/path/to/.venv/bin/python -m process_manager
+ExecStart=/path/to/.venv/bin/python -m manager
 Restart=always
 KillMode=process
 
@@ -546,7 +552,7 @@ sudo systemctl restart process-manager
 #### Using screen/tmux
 
 ```bash
-screen -dmS process-manager python3 -m process_manager
+screen -dmS process-manager python3 -m manager
 ```
 
 Reattach:
@@ -565,7 +571,7 @@ screen -r process-manager
 ### Process Not Starting
 
 1. Check the log file: `{program_name}.log`
-2. Verify the script path in `process_manager.yaml`
+2. Verify the script path in `manager.yaml`
 3. Ensure the venv exists and has required dependencies
 4. Check file permissions
 
@@ -604,13 +610,12 @@ The manager uses PID files to reconnect. If a process was killed externally:
 2. Verify firewall settings allow the port
 3. Check the host binding (`0.0.0.0` vs `127.0.0.1`)
 
-### Upload Modal Not Closing
+### Modal Not Closing
 
-If the upload modal doesn't close after submitting:
+If a modal doesn't close after submitting:
 - Check browser console for JavaScript errors
 - Ensure the server is responding (check terminal output)
 - Try refreshing the page
-- This was a known issue (deadlock bug) - ensure you're using the latest version
 
 ## Dependencies
 

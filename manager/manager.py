@@ -41,11 +41,11 @@ MAX_UPLOAD_SIZE_MB = 50
 
 
 class ProcessManager:
-    def __init__(self, config_path: str = "process_manager.yaml"):
+    def __init__(self, config_path: str = "manager.yaml"):
         self.base_dir = Path(__file__).parent.parent.resolve()
         self.config_path = self.base_dir / config_path
-        self.programs_config_path = self.base_dir / "programs.yaml"
-        self.pid_file = self.base_dir / "process_manager.pids.json"
+        self.programs_config_path = self.base_dir / "progs.yaml"
+        self.pid_file = self.base_dir / "manager.pids.json"
         self.uploaded_dir = self.base_dir / UPLOADED_PROGRAMS_DIR
         self.log_dir = self.base_dir / "log"
         self.processes: dict[str, ProcessInfo] = {}
@@ -116,18 +116,14 @@ class ProcessManager:
         else:
             self.global_cwd = None
 
-        # Migrate from old config format if programs.yaml doesn't exist
-        if not self.programs_config_path.exists():
-            self._migrate_to_programs_yaml()
-
-        # Load programs from programs.yaml
+        # Load programs from progs.yaml
         if self.programs_config_path.exists():
             with open(self.programs_config_path) as f:
                 programs_config = yaml.safe_load(f) or {}
         else:
             programs_config = {"programs": []}
 
-        # Load all programs from programs.yaml
+        # Load all programs from progs.yaml
         for prog in programs_config.get("programs", []):
             name = prog["name"]
             program_uploaded = prog.get("uploaded", False)
@@ -165,35 +161,8 @@ class ProcessManager:
                 self.processes[name].args = program_args
                 self.processes[name].environment = program_environment
 
-    def _migrate_to_programs_yaml(self):
-        """One-time migration from old config format to new programs.yaml."""
-        programs = []
-
-        # Collect from process_manager.yaml (old format had programs there)
-        if "programs" in self.config:
-            programs.extend(self.config.get("programs", []))
-
-        # Collect from uploaded_programs.yaml (old uploaded programs file)
-        old_uploaded_path = self.base_dir / "uploaded_programs.yaml"
-        if old_uploaded_path.exists():
-            try:
-                with open(old_uploaded_path) as f:
-                    uploaded = yaml.safe_load(f) or {}
-                programs.extend(uploaded.get("programs", []))
-            except Exception as e:
-                print(f"Warning: Failed to read uploaded_programs.yaml during migration: {e}")
-
-        if programs:
-            # Write to programs.yaml
-            try:
-                with open(self.programs_config_path, "w") as f:
-                    yaml.dump({"programs": programs}, f, default_flow_style=False, sort_keys=False)
-                print(f"Migrated {len(programs)} programs to programs.yaml")
-            except Exception as e:
-                print(f"Warning: Failed to write programs.yaml during migration: {e}")
-
     def save_programs(self):
-        """Save all programs to programs.yaml."""
+        """Save all programs to progs.yaml."""
         programs_config = []
         with self.lock:
             for info in self.processes.values():

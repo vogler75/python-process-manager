@@ -138,7 +138,7 @@ dmypy.json
 *.log
 *.log.*
 nohup.out
-process_manager.pids.json
-process_manager.yaml
+manager.pids.json
+manager.yaml
+progs.yaml
 uploaded_programs
-uploaded_programs.yaml
