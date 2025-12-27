@@ -271,28 +271,23 @@ class ProcessManager:
         if pid is None:
             return False
         try:
+            # Prefer psutil if available - more reliable across platforms
+            if PSUTIL_AVAILABLE:
+                return psutil.pid_exists(pid)
+
             if IS_WINDOWS:
-                # Signal 0 is not supported on Windows os.kill() in some Python versions
-                # or behaves differently. subprocess.Popen.poll() is better if we have the object.
-                # For PID check, we can use psutil or tasklist.
-                if PSUTIL_AVAILABLE:
-                    return psutil.pid_exists(pid)
-                else:
-                    # Fallback for Windows without psutil
-                    output = subprocess.check_output(
-                        ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
-                        text=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW if IS_WINDOWS else 0
-                    )
-                    return str(pid) in output
+                # Fallback for Windows without psutil
+                output = subprocess.check_output(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                    text=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                )
+                return str(pid) in output
             else:
                 os.kill(pid, 0)  # Signal 0 doesn't kill, just checks if process exists
                 return True
-        except (ProcessLookupError, subprocess.CalledProcessError):
+        except (ProcessLookupError, OSError, subprocess.CalledProcessError):
             return False
-        except PermissionError:
-            # Process exists but we don't have permission (shouldn't happen for our own processes)
-            return True
         except Exception:
             return False
 
@@ -491,6 +486,10 @@ class ProcessManager:
                         # We have a Popen object, use poll()
                         retcode = info.process.poll()
                         is_running = (retcode is None)
+                        # Double-check with is_process_alive() if poll() says running
+                        # This catches cases where process was killed externally
+                        if is_running and info.pid is not None:
+                            is_running = self.is_process_alive(info.pid)
                     elif info.pid is not None:
                         # Restored process, check by PID
                         is_running = self.is_process_alive(info.pid)
@@ -704,6 +703,31 @@ class ProcessManager:
                 self.start_process(info)
                 return True
         return False
+
+    def reset_restarts(self, name: str) -> dict:
+        """Reset restart counters for a single program.
+
+        Returns: {"success": bool, "message": str}
+        """
+        with self.lock:
+            if name not in self.processes:
+                return {"success": False, "message": f"Program '{name}' not found."}
+
+            info = self.processes[name]
+            info.total_restarts = 0
+            info.consecutive_failures = 0
+            return {"success": True, "message": f"Restart counters reset for '{name}'."}
+
+    def reset_all_restarts(self) -> dict:
+        """Reset restart counters for all programs.
+
+        Returns: {"success": bool, "message": str}
+        """
+        with self.lock:
+            for info in self.processes.values():
+                info.total_restarts = 0
+                info.consecutive_failures = 0
+            return {"success": True, "message": "Restart counters reset for all programs."}
 
     def edit_program(self, name: str, updates: dict) -> dict:
         """Edit an existing program's configuration.

@@ -280,6 +280,10 @@ def get_html(title: str = "Process Manager") -> str:
         .btn-update { background: linear-gradient(135deg, #ff9800, #ef6c00); color: white; }
         .btn-edit { background: linear-gradient(135deg, #607d8b, #455a64); color: white; }
         .btn-add { background: linear-gradient(135deg, #00bcd4, #0097a7); color: white; }
+        .btn-reset { background: linear-gradient(135deg, #795548, #5d4037); color: white; }
+        .reset-icon { cursor: pointer; opacity: 0.4; display: inline-block; vertical-align: middle; margin-left: 2px; }
+        .reset-icon:hover { opacity: 1; }
+        .reset-icon svg { width: 10px; height: 10px; fill: currentColor; }
         
         .process-footer {
             padding: 12px 16px;
@@ -470,6 +474,7 @@ def get_html(title: str = "Process Manager") -> str:
             <div style="display: flex; gap: 15px; align-items: center;">
                 <button class="btn btn-view-toggle" onclick="toggleView()" id="btnViewToggle">Table View</button>
                 <button class="btn btn-reload-config" onclick="reloadConfig()" id="btnReloadConfig">Reload Configuration</button>
+                <button class="btn btn-reset" onclick="resetAllRestarts()" id="btnResetAll">Reset All Counters</button>
                 <button class="btn btn-add" onclick="openAddModal()">+ New Program</button>
                 <div class="header-status" id="headerStatus">
                     <span class="dot"></span>
@@ -700,7 +705,8 @@ def get_html(title: str = "Process Manager") -> str:
             update: '<svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>',
             remove: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
             edit: '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
-            add: '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>'
+            add: '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>',
+            reset: '<svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>'
         };
 
         async function fetchStatus() {
@@ -740,7 +746,7 @@ def get_html(title: str = "Process Manager") -> str:
                             </div>
                             <div class="stat-item">
                                 <span class="stat-label">Restarts</span>
-                                <span class="stat-value">${p.total_restarts}</span>
+                                <span class="stat-value">${p.total_restarts} ${p.total_restarts > 0 ? `<span class="reset-icon" onclick="resetRestarts('${p.name}')" title="Reset counter">${ICONS.reset}</span>` : ''}</span>
                             </div>
                             <div class="stat-item">
                                 <span class="stat-label">Log</span>
@@ -802,7 +808,7 @@ def get_html(title: str = "Process Manager") -> str:
                                         </div>
                                     </div>
                                 </td>
-                                <td class="table-info">${p.total_restarts || 0}${p.is_broken ? ` (${p.consecutive_failures} fails)` : ''}</td>
+                                <td class="table-info">${p.total_restarts || 0}${p.is_broken ? ` (${p.consecutive_failures} fails)` : ''} ${p.total_restarts > 0 ? `<span class="reset-icon" onclick="resetRestarts('${p.name}')" title="Reset counter">${ICONS.reset}</span>` : ''}</td>
                                  <td class="table-actions">
                                     <div class="actions">
                                         ${p.status === 'stopped' || p.is_broken ?
@@ -1268,6 +1274,46 @@ def get_html(title: str = "Process Manager") -> str:
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Reload Configuration';
+            }
+        }
+
+        async function resetRestarts(name) {
+            if (!confirm(`Reset restart counters for "${name}"?`)) return;
+            try {
+                const response = await fetch(`/api/reset-restarts/${encodeURIComponent(name)}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    alert(`Failed: ${result.message}`);
+                }
+                fetchStatus();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function resetAllRestarts() {
+            if (!confirm('Reset restart counters for all programs?')) return;
+            const btn = document.getElementById('btnResetAll');
+            btn.disabled = true;
+            btn.textContent = 'Resetting...';
+
+            try {
+                const response = await fetch('/api/reset-all-restarts', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    fetchStatus();
+                } else {
+                    alert(`Failed: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Reset All Counters';
             }
         }
 

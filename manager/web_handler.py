@@ -101,6 +101,24 @@ class WebHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
+        elif self.path == "/api/reset-all-restarts":
+            result = self.manager.reset_all_restarts()
+            self.send_response(200 if result["success"] else 400)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
+        elif self.path.startswith("/api/reset-restarts/"):
+            parts = self.path.split("/")
+            if len(parts) >= 4:
+                name = unquote(parts[3])
+                result = self.manager.reset_restarts(name)
+                self.send_response(200 if result["success"] else 400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode())
+            else:
+                self.send_response(400)
+                self.end_headers()
         elif self.path.startswith("/api/edit/"):
             parts = self.path.split("/")
             if len(parts) >= 4:
