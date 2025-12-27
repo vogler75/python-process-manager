@@ -526,6 +526,15 @@ def get_html(title: str = "Process Manager") -> str:
         let totalLines = 0;
         let tailInterval = null;
 
+        function getCPUColor(data) {
+            if (!data || data.length === 0) return '#4caf50';
+            const displayData = data.slice(-300);
+            const avg = displayData.reduce((a, b) => a + b, 0) / displayData.length;
+            if (avg > 80) return '#f44336';
+            if (avg > 50) return '#ff9800';
+            return '#4caf50';
+        }
+
         function renderSparkline(data, width = 400, height = 60) {
             if (!data || data.length === 0) {
                 return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
@@ -609,7 +618,7 @@ def get_html(title: str = "Process Manager") -> str:
                             </div>
                         </div>
                         <div class="cpu-group">
-                            <div class="cpu-val-display">${p.cpu_current.toFixed(1)}%</div>
+                            <div class="cpu-val-display" style="color: ${getCPUColor(p.cpu_history)}">${p.cpu_current.toFixed(1)}%</div>
                             <div class="cpu-chart-mini">${renderSparkline(p.cpu_history, 120, 35)}</div>
                         </div>
                     </div>
@@ -656,10 +665,14 @@ def get_html(title: str = "Process Manager") -> str:
                                 <td class="table-info">${p.uptime || '-'}</td>
                                 <td class="table-info">${p.log_size_display || '-'}</td>
                                  <td>
-                                    <div style="width: 100px; height: 24px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden;">
-                                        ${renderSparkline(p.cpu_history, 100, 24)}
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 100px; height: 24px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden; flex-shrink: 0;">
+                                            ${renderSparkline(p.cpu_history, 100, 24)}
+                                        </div>
+                                        <div style="font-size: 0.9em; font-weight: 700; color: ${getCPUColor(p.cpu_history)}; min-width: 50px;">
+                                            ${p.cpu_current.toFixed(1)}%
+                                        </div>
                                     </div>
-                                    <div class="cpu-value" style="font-size: 0.8em; text-align: right; margin-top: 2px;">${p.cpu_current.toFixed(1)}%</div>
                                 </td>
                                 <td class="table-info">${p.total_restarts || 0}${p.is_broken ? ` (${p.consecutive_failures} fails)` : ''}</td>
                                  <td class="table-actions">
