@@ -625,6 +625,8 @@ class ProcessManager:
                 if info.status == "stopping" or info.status == "restarting":
                     return True  # Already in progress
                 info.status = "restarting"
+                info.enabled = True  # Re-enable if it was stopped
+                info.is_broken = False # Clear broken status
                 info._user_action_in_progress = True  # Prevent monitor interference
                 # Run actual restart in background thread
                 threading.Thread(
