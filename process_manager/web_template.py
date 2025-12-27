@@ -89,40 +89,32 @@ def get_html(title: str = "Process Manager") -> str:
             50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(244, 67, 54, 0); }
         }
 
-        /* Process List - Card View */
+        /* Process List */
         .process-list {
             padding: 20px;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
         }
         .process {
             background: rgba(13, 20, 33, 0.6);
-            border-radius: 12px;
-            padding: 18px;
-            border: 1px solid rgba(0, 212, 255, 0.15);
-            transition: all 0.2s ease;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
             display: flex;
-            flex-direction: column;
-            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
         }
         .process:hover {
-            border-color: rgba(0, 212, 255, 0.3);
             background: rgba(13, 20, 33, 0.8);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-            transform: translateY(-2px);
+            border-color: rgba(0, 212, 255, 0.2);
+            transform: translateY(-1px);
         }
-        @media (max-width: 1200px) {
-            .process-list {
-                grid-template-columns: 1fr;
-            }
-        }
-        .process-info { }
-        .process-name { font-weight: 600; font-size: 1.1em; color: #fff; margin-bottom: 4px; }
-        .process-script { color: #666; font-size: 0.85em; }
-        .process-meta { font-size: 0.8em; color: #888; margin-top: 8px; }
-        .process-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
-        .process-controls-left { display: flex; align-items: center; gap: 10px; }
+        .process-info { flex: 1; min-width: 250px; }
+        .process-name { font-weight: 600; font-size: 1.05em; color: #fff; }
+        .process-script { color: #666; font-size: 0.85em; margin-top: 2px; }
+        .process-meta { font-size: 0.8em; color: #888; margin-top: 6px; }
+        .process-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 
         /* Status Badges */
         .status {
@@ -144,39 +136,19 @@ def get_html(title: str = "Process Manager") -> str:
         /* Buttons */
         .actions { display: flex; gap: 6px; flex-wrap: wrap; }
         .btn {
-            padding: 8px;
+            padding: 6px 12px;
             border: none;
-            border-radius: 6px;
+            border-radius: 5px;
             cursor: pointer;
-            font-size: 1.1em;
+            font-size: 0.8em;
+            font-weight: 500;
             transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 36px;
-            height: 36px;
-            position: relative;
+            white-space: nowrap;
         }
         .btn-placeholder { visibility: hidden; pointer-events: none; }
         .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
-        .btn:hover::after {
-            content: attr(title);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.7em;
-            white-space: nowrap;
-            margin-bottom: 4px;
-            pointer-events: none;
-        }
         .btn:active { transform: translateY(0); }
         .btn:disabled { background: #444; cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: none; }
-        .btn:disabled::after { display: none; }
         .btn-start { background: linear-gradient(135deg, #4caf50, #45a049); color: white; }
         .btn-stop { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; }
         .btn-restart { background: linear-gradient(135deg, #2196f3, #1976d2); color: white; }
@@ -472,7 +444,7 @@ def get_html(title: str = "Process Manager") -> str:
         function render(processes) {
             const container = document.getElementById('processes');
 
-            // Card view (2-column grid with icon buttons)
+            // Card view (existing)
             const cardHtml = processes.map(p => `
                 <div class="process">
                     <div class="process-info">
@@ -486,25 +458,23 @@ def get_html(title: str = "Process Manager") -> str:
                         </div>
                     </div>
                     <div class="process-controls">
-                        <div class="process-controls-left">
-                            <div class="cpu-container">
-                                <div class="cpu-chart">${renderSparkline(p.cpu_history)}</div>
-                                <span class="cpu-value">${p.cpu_current.toFixed(1)}%</span>
-                            </div>
-                            <span class="status ${p.status}">${p.status}</span>
+                        <div class="cpu-container">
+                            <div class="cpu-chart">${renderSparkline(p.cpu_history)}</div>
+                            <span class="cpu-value">${p.cpu_current.toFixed(1)}%</span>
                         </div>
+                        <span class="status ${p.status}">${p.status}</span>
                         <div class="actions">
                             ${p.status === 'stopped' || p.is_broken ?
-                                `<button class="btn btn-start" onclick="action('start', '${p.name}')" title="Start">▶</button>` :
-                                `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" title="Stop" ${p.status === 'stopping' ? 'disabled' : ''}>■</button>`}
-                            <button class="btn btn-restart" onclick="action('restart', '${p.name}')" title="Restart" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''}>↻</button>
-                            <button class="btn btn-logs" onclick="openLogModal('${p.name}')" title="View Logs">📋</button>
+                                `<button class="btn btn-start" onclick="action('start', '${p.name}')">Start</button>` :
+                                `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''}>Stop</button>`}
+                            <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''}>Restart</button>
+                            <button class="btn btn-logs" onclick="openLogModal('${p.name}')">Logs</button>
                             ${p.uploaded ? `
-                                ${p.status === 'stopped' ? `<button class="btn btn-update" onclick="openUpdateModal('${p.name}')" title="Update">⬆</button>` : `<button class="btn btn-update btn-placeholder" title="Update">⬆</button>`}
-                                ${p.status === 'stopped' ? `<button class="btn btn-remove" onclick="removeProgram('${p.name}')" title="Remove">🗑</button>` : `<button class="btn btn-remove btn-placeholder" title="Remove">🗑</button>`}
+                                ${p.status === 'stopped' ? `<button class="btn btn-update" onclick="openUpdateModal('${p.name}')">Update</button>` : `<button class="btn btn-update btn-placeholder">Update</button>`}
+                                ${p.status === 'stopped' ? `<button class="btn btn-remove" onclick="removeProgram('${p.name}')">Remove</button>` : `<button class="btn btn-remove btn-placeholder">Remove</button>`}
                             ` : `
-                                <button class="btn btn-update btn-placeholder" title="Update">⬆</button>
-                                <button class="btn btn-remove btn-placeholder" title="Remove">🗑</button>
+                                <button class="btn btn-update btn-placeholder">Update</button>
+                                <button class="btn btn-remove btn-placeholder">Remove</button>
                             `}
                         </div>
                     </div>
