@@ -249,14 +249,33 @@ def get_html(title: str = "Process Manager") -> str:
         .btn-update { background: linear-gradient(135deg, #ff9800, #ef6c00); color: white; }
         
         .process-footer {
-            padding: 15px 24px;
+            padding: 12px 16px;
             background: rgba(0, 0, 0, 0.2);
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .action-group { display: flex; gap: 10px; }
+        .process-footer .btn {
+            padding: 4px 10px;
+            font-size: 0.75em;
+            height: 30px;
+            min-width: 0;
+            border-radius: 4px;
+        }
+        .process-footer .btn svg {
+            width: 14px;
+            height: 14px;
+            margin-right: 4px;
+        }
+        .action-group { display: flex; gap: 6px; }
+
+        /* Responsive Button Labels */
+        @media (max-width: 1200px) {
+            .process-footer .btn-text { display: none; }
+            .process-footer .btn svg { margin-right: 0; }
+            .process-footer .btn { padding: 4px; width: 32px; height: 32px; }
+        }
         
         .btn-upload-header { background: linear-gradient(135deg, #00bcd4, #0097a7); color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s ease; }
         .btn-upload-header:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 188, 212, 0.4); }
@@ -597,17 +616,17 @@ def get_html(title: str = "Process Manager") -> str:
 
                     <div class="process-footer">
                         <div class="action-group">
-                            <button class="btn btn-logs" onclick="openLogModal('${p.name}')" title="Logs">${ICONS.logs} Logs</button>
+                            <button class="btn btn-logs" onclick="openLogModal('${p.name}')" title="Logs">${ICONS.logs} <span class="btn-text">Logs</span></button>
                             ${p.uploaded ? `
-                                <button class="btn btn-update" onclick="openUpdateModal('${p.name}')" title="Update">${ICONS.update} Update</button>
-                                <button class="btn btn-remove" onclick="removeProgram('${p.name}')" title="Remove">${ICONS.remove} Remove</button>
+                                <button class="btn btn-update" onclick="openUpdateModal('${p.name}')" title="Update">${ICONS.update} <span class="btn-text">Update</span></button>
+                                <button class="btn btn-remove" onclick="removeProgram('${p.name}')" title="Remove">${ICONS.remove} <span class="btn-text">Remove</span></button>
                             ` : ''}
                         </div>
                         <div class="action-group">
-                            <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''} title="Restart">${ICONS.restart} Restart</button>
+                            <button class="btn btn-restart" onclick="action('restart', '${p.name}')" ${p.status === 'stopping' || p.status === 'restarting' ? 'disabled' : ''} title="Restart">${ICONS.restart} <span class="btn-text">Restart</span></button>
                             ${p.status === 'stopped' || p.is_broken ?
-                                `<button class="btn btn-start" onclick="action('start', '${p.name}')" title="Start">${ICONS.start} Start</button>` :
-                                `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''} title="Stop">${ICONS.stop} Stop</button>`}
+                                `<button class="btn btn-start" onclick="action('start', '${p.name}')" title="Start">${ICONS.start} <span class="btn-text">Start</span></button>` :
+                                `<button class="btn btn-stop" onclick="action('stop', '${p.name}')" ${p.status === 'stopping' ? 'disabled' : ''} title="Stop">${ICONS.stop} <span class="btn-text">Stop</span></button>`}
                         </div>
                     </div>
                 </div>
