@@ -173,6 +173,11 @@ def get_html(title: str = "Process Manager") -> str:
             color: #8bc34a;
             border: 1px solid rgba(104, 159, 56, 0.4);
         }
+        .type-badge.exec {
+            background: rgba(255, 152, 0, 0.25);
+            color: #ffb74d;
+            border: 1px solid rgba(255, 152, 0, 0.4);
+        }
 
         .process-stats {
             display: grid;
@@ -523,15 +528,22 @@ def get_html(title: str = "Process Manager") -> str:
                         <input type="text" id="editProgramName" name="name" required>
                         <div class="hint">Changing the name will rename the program</div>
                     </div>
-                    <div class="form-group">
-                        <label for="editScript">Entry Script *</label>
-                        <input type="text" id="editScript" name="script" required>
+                    <div class="form-group" id="editScriptGroup">
+                        <label for="editScript">Entry Script</label>
+                        <input type="text" id="editScript" name="script" placeholder="main.py or /path/to/script.py">
+                        <div class="hint">Script to execute (leave empty if using module)</div>
+                    </div>
+                    <div class="form-group" id="editModuleGroup">
+                        <label for="editModule">Module (python -m)</label>
+                        <input type="text" id="editModule" name="module" placeholder="uvicorn, flask, http.server">
+                        <div class="hint">Python module to run with -m flag (e.g., uvicorn app:app)</div>
                     </div>
                     <div class="form-group">
                         <label for="editType">Runtime Type</label>
                         <select id="editType" name="type">
                             <option value="python">Python</option>
                             <option value="node">Node.js</option>
+                            <option value="exec">Executable</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -588,18 +600,24 @@ def get_html(title: str = "Process Manager") -> str:
                         <input type="text" id="addProgramName" name="name" required placeholder="My Application">
                         <div class="hint">Unique name for this program</div>
                     </div>
-                    <div class="form-group">
-                        <label for="addScript">Entry Script *</label>
-                        <input type="text" id="addScript" name="script" required placeholder="main.py or /path/to/script.py">
-                        <div class="hint" id="addScriptHint">Script to execute</div>
+                    <div class="form-group" id="addScriptGroup">
+                        <label for="addScript">Entry Script</label>
+                        <input type="text" id="addScript" name="script" placeholder="main.py or /path/to/script.py">
+                        <div class="hint" id="addScriptHint">Script to execute (leave empty if using module)</div>
+                    </div>
+                    <div class="form-group" id="addModuleGroup">
+                        <label for="addModule">Module (python -m)</label>
+                        <input type="text" id="addModule" name="module" placeholder="uvicorn, flask, http.server">
+                        <div class="hint" id="addModuleHint">Python module to run with -m flag (e.g., uvicorn app:app)</div>
                     </div>
                     <div class="form-group">
                         <label for="addType">Runtime Type *</label>
                         <select id="addType" name="type" onchange="updateAddFormHints()">
                             <option value="python" selected>Python</option>
                             <option value="node">Node.js</option>
+                            <option value="exec">Executable</option>
                         </select>
-                        <div class="hint">Python uses venv, Node.js uses npm</div>
+                        <div class="hint">Python uses venv, Node.js uses npm, Executable runs directly</div>
                     </div>
                     <div class="form-group">
                         <label for="addZipFile">ZIP File (optional)</label>
@@ -728,7 +746,7 @@ def get_html(title: str = "Process Manager") -> str:
                     <div class="process-top">
                         <div class="process-title-group">
                             <div class="process-name" title="${p.name}">${p.name}</div>
-                            <div class="process-script">${p.script}<span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span></div>
+                            <div class="process-script">${p.module ? '-m ' + p.module : p.script || '(none)'}<span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span></div>
                             ${p.comment ? `<div class="process-comment">${p.comment}</div>` : ''}
                         </div>
                         <span class="status ${p.status}">${p.status}</span>
@@ -1015,7 +1033,8 @@ def get_html(title: str = "Process Manager") -> str:
             // Populate form
             document.getElementById('editOriginalName').value = name;
             document.getElementById('editProgramName').value = program.name;
-            document.getElementById('editScript').value = program.script;
+            document.getElementById('editScript').value = program.script || '';
+            document.getElementById('editModule').value = program.module || '';
             document.getElementById('editType').value = program.type || 'python';
             document.getElementById('editComment').value = program.comment || '';
             document.getElementById('editVenv').value = program.venv || '';
@@ -1027,8 +1046,11 @@ def get_html(title: str = "Process Manager") -> str:
 
             // Show ZIP upload field only for uploaded programs
             document.getElementById('editZipGroup').style.display = program.uploaded ? 'block' : 'none';
-            // Show venv field only for Python programs
-            document.getElementById('editVenvGroup').style.display = (program.type || 'python') === 'python' ? 'block' : 'none';
+            // Show venv and module fields only for Python programs (not for node or exec)
+            const editType = program.type || 'python';
+            const isPython = editType === 'python';
+            document.getElementById('editVenvGroup').style.display = isPython ? 'block' : 'none';
+            document.getElementById('editModuleGroup').style.display = isPython ? 'block' : 'none';
 
             document.getElementById('editModalTitle').textContent = `Edit: ${name}`;
             document.getElementById('editStatus').style.display = 'none';
@@ -1065,7 +1087,8 @@ def get_html(title: str = "Process Manager") -> str:
 
                 const updates = {
                     new_name: document.getElementById('editProgramName').value,
-                    script: document.getElementById('editScript').value,
+                    script: document.getElementById('editScript').value || null,
+                    module: document.getElementById('editModule').value || null,
                     type: document.getElementById('editType').value,
                     comment: document.getElementById('editComment').value || null,
                     venv: document.getElementById('editVenv').value || null,
@@ -1141,6 +1164,7 @@ def get_html(title: str = "Process Manager") -> str:
         function openAddModal() {
             document.getElementById('addForm').reset();
             document.getElementById('addZipFile').value = '';  // Ensure file input is cleared
+            document.getElementById('addModule').value = '';  // Clear module field
             document.getElementById('addType').value = 'python';  // Reset type to Python
             document.getElementById('addEnabled').checked = true;
             document.getElementById('addStatus').style.display = 'none';
@@ -1155,16 +1179,27 @@ def get_html(title: str = "Process Manager") -> str:
         function updateAddFormHints() {
             const type = document.getElementById('addType').value;
             const isPython = type === 'python';
+            const isNode = type === 'node';
+            const isExec = type === 'exec';
             // Update script hint
-            document.getElementById('addScriptHint').textContent = isPython
-                ? 'Python script to execute (e.g., main.py)'
-                : 'JavaScript file to execute (e.g., server.js, index.js)';
+            if (isPython) {
+                document.getElementById('addScriptHint').textContent = 'Python script to execute (leave empty if using module)';
+            } else if (isNode) {
+                document.getElementById('addScriptHint').textContent = 'JavaScript file to execute (e.g., server.js, index.js)';
+            } else {
+                document.getElementById('addScriptHint').textContent = 'Executable to run (e.g., ./myapp, /usr/bin/program)';
+            }
             // Update ZIP hint
-            document.getElementById('addZipHint').textContent = isPython
-                ? 'If provided, extracts files and creates isolated venv with requirements.txt'
-                : 'If provided, extracts files and runs npm install with package.json';
-            // Show/hide venv field (only for Python without ZIP)
+            if (isPython) {
+                document.getElementById('addZipHint').textContent = 'If provided, extracts files and creates isolated venv with requirements.txt';
+            } else if (isNode) {
+                document.getElementById('addZipHint').textContent = 'If provided, extracts files and runs npm install with package.json';
+            } else {
+                document.getElementById('addZipHint').textContent = 'If provided, extracts files (no dependency installation for executables)';
+            }
+            // Show/hide venv and module fields (only for Python)
             document.getElementById('addVenvGroup').style.display = isPython ? 'block' : 'none';
+            document.getElementById('addModuleGroup').style.display = isPython ? 'block' : 'none';
         }
 
         async function handleAdd(event) {
@@ -1208,7 +1243,8 @@ def get_html(title: str = "Process Manager") -> str:
                     btn.textContent = 'Creating...';
                     const data = {
                         name: document.getElementById('addProgramName').value,
-                        script: document.getElementById('addScript').value,
+                        script: document.getElementById('addScript').value || null,
+                        module: document.getElementById('addModule').value || null,
                         type: progType,
                         comment: document.getElementById('addComment').value || null,
                         venv: document.getElementById('addVenv').value || null,

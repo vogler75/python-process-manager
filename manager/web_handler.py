@@ -311,17 +311,26 @@ class WebHandler(BaseHTTPRequestHandler):
 
             name = data.get("name")
             script = data.get("script")
+            module = data.get("module")
 
-            if not name or not script:
+            if not name:
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Name and script are required"}).encode())
+                self.wfile.write(json.dumps({"success": False, "message": "Name is required"}).encode())
+                return
+
+            if not script and not module:
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Either script or module is required"}).encode())
                 return
 
             result = self.manager.add_program(
                 name=name,
                 script=script,
+                module=module,
                 prog_type=data.get("type", "python"),
                 enabled=data.get("enabled", True),
                 comment=data.get("comment"),

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Process Manager is a lightweight process manager with an embedded web dashboard. It manages multiple Python and Node.js programs, provides auto-restart on crashes, and serves a real-time web UI for monitoring and control.
+Process Manager is a lightweight process manager with an embedded web dashboard. It manages multiple Python, Node.js, and plain executable programs, provides auto-restart on crashes, and serves a real-time web UI for monitoring and control.
 
 ## Running the Application
 
@@ -73,8 +73,10 @@ The application uses two configuration files:
 - `logging`: max_size_mb for log rotation
 
 **`progs.yaml`** - All program definitions:
-- `programs`: list of all programs {name, script, type, enabled, uploaded, comment, venv, cwd, args, environment}
-- `type`: "python" (default) or "node" for Node.js programs
+- `programs`: list of all programs {name, script, module, type, enabled, uploaded, comment, venv, cwd, args, environment}
+- `script`: path to script file (for Python, Node.js, or exec types)
+- `module`: Python module name for `-m` execution (e.g., `uvicorn`, `flask`). Mutually exclusive with `script`
+- `type`: "python" (default), "node" for Node.js, or "exec" for plain executables
 - Managed via web UI (Add, Edit, Remove)
 - The `uploaded` field marks programs that have upload directories (can update via ZIP)
 
@@ -86,8 +88,8 @@ The application uses two configuration files:
   - `{program_name}/` - Each uploaded program gets its own directory
     - `.venv/` - Isolated virtual environment (Python only)
     - `node_modules/` - npm packages (Node.js only)
-    - `*.py` or `*.js` - Program source files
-    - `requirements.txt` or `package.json` - Dependencies (optional)
+    - `*.py`, `*.js`, or executable files - Program source files
+    - `requirements.txt` or `package.json` - Dependencies (optional, not used for exec type)
 - `log/{program_name}.log` - Process output logs
 - `log/{program_name}.log.1` - Rotated log files
 

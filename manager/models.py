@@ -21,13 +21,15 @@ CPU_HISTORY_SIZE = 300
 # Supported runtime types
 RUNTIME_PYTHON = "python"
 RUNTIME_NODE = "node"
-SUPPORTED_RUNTIMES = [RUNTIME_PYTHON, RUNTIME_NODE]
+RUNTIME_EXEC = "exec"
+SUPPORTED_RUNTIMES = [RUNTIME_PYTHON, RUNTIME_NODE, RUNTIME_EXEC]
 
 
 @dataclass
 class ProcessInfo:
     name: str
-    script: str
+    script: str = None  # Script file path (mutually exclusive with module)
+    module: str = None  # Python module name for -m execution (mutually exclusive with script)
     type: str = RUNTIME_PYTHON  # Runtime type: "python" or "node"
     enabled: bool = True
     uploaded: bool = False  # True if program has upload directory (can update via ZIP)

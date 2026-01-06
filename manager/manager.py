@@ -24,7 +24,7 @@ from datetime import datetime
 import json
 import yaml
 
-from .models import ProcessInfo, RUNTIME_PYTHON, RUNTIME_NODE, SUPPORTED_RUNTIMES
+from .models import ProcessInfo, RUNTIME_PYTHON, RUNTIME_NODE, RUNTIME_EXEC, SUPPORTED_RUNTIMES
 
 try:
     import psutil
@@ -144,6 +144,7 @@ class ProcessManager:
             program_args = prog.get("args")
             program_environment = prog.get("environment")
             program_comment = prog.get("comment")
+            program_module = prog.get("module")  # Python module for -m execution
             # Ensure args is a list
             if program_args is not None and not isinstance(program_args, list):
                 program_args = [str(program_args)]
@@ -153,7 +154,8 @@ class ProcessManager:
             if name not in self.processes:
                 self.processes[name] = ProcessInfo(
                     name=name,
-                    script=prog["script"],
+                    script=prog.get("script"),
+                    module=program_module,
                     type=program_type,
                     enabled=prog.get("enabled", True),
                     uploaded=program_uploaded,
@@ -165,7 +167,8 @@ class ProcessManager:
                 )
             else:
                 # Update existing process (on reload)
-                self.processes[name].script = prog["script"]
+                self.processes[name].script = prog.get("script")
+                self.processes[name].module = program_module
                 self.processes[name].type = program_type
                 self.processes[name].enabled = prog.get("enabled", True)
                 self.processes[name].uploaded = program_uploaded
@@ -182,9 +185,13 @@ class ProcessManager:
             for info in self.processes.values():
                 prog = {
                     "name": info.name,
-                    "script": info.script,
                     "enabled": info.enabled,
                 }
+                # Save script or module (mutually exclusive)
+                if info.script:
+                    prog["script"] = info.script
+                if info.module:
+                    prog["module"] = info.module
                 if info.type != RUNTIME_PYTHON:
                     prog["type"] = info.type
                 if info.uploaded:
@@ -382,26 +389,53 @@ class ProcessManager:
         else:
             work_dir = self.base_dir
 
-        # Resolve script path relative to cwd (if set) or base_dir
-        script_path = work_dir / info.script
-        if not script_path.exists():
-            print(f"[{info.name}] Script not found: {script_path}")
-            info.status = "error"
-            return
-
         log_file = self.log_dir / f"{self.sanitize_filename(info.name)}.log"
 
         # Build command based on runtime type
-        if info.type == RUNTIME_NODE:
-            # Node.js program
+        if info.type == RUNTIME_EXEC:
+            # Plain executable - requires script
+            if not info.script:
+                print(f"[{info.name}] No script specified for executable")
+                info.status = "error"
+                return
+            script_path = work_dir / info.script
+            if not script_path.exists():
+                print(f"[{info.name}] Script not found: {script_path}")
+                info.status = "error"
+                return
+            cmd = [str(script_path)]
+        elif info.type == RUNTIME_NODE:
+            # Node.js program - requires script
+            if not info.script:
+                print(f"[{info.name}] No script specified for Node.js program")
+                info.status = "error"
+                return
             if not self.node_path:
                 print(f"[{info.name}] Node.js not found. Install Node.js or configure 'node' in {self.config_path}")
                 info.status = "error"
                 return
+            script_path = work_dir / info.script
+            if not script_path.exists():
+                print(f"[{info.name}] Script not found: {script_path}")
+                info.status = "error"
+                return
             cmd = [str(self.node_path), str(script_path)]
-        else:
-            # Python program (default)
+        elif info.module:
+            # Python module mode: python -m module_name
             venv_python = self.get_venv_python(info)
+            cmd = [str(venv_python), "-u", "-m", info.module]
+        else:
+            # Python script mode (default)
+            if not info.script:
+                print(f"[{info.name}] No script or module specified")
+                info.status = "error"
+                return
+            venv_python = self.get_venv_python(info)
+            script_path = work_dir / info.script
+            if not script_path.exists():
+                print(f"[{info.name}] Script not found: {script_path}")
+                info.status = "error"
+                return
             cmd = [str(venv_python), "-u", str(script_path)]
 
         # Add optional arguments
@@ -435,8 +469,15 @@ class ProcessManager:
             info.pid = info.process.pid
             info.status = "running"
             info.start_time = datetime.now()
-            runtime = self.node_path if info.type == RUNTIME_NODE else self.get_venv_python(info)
-            print(f"[{info.name}] Started with PID {info.process.pid} using {runtime}")
+            if info.type == RUNTIME_EXEC:
+                runtime_info = f"exec: {info.script}"
+            elif info.type == RUNTIME_NODE:
+                runtime_info = f"node: {info.script}"
+            elif info.module:
+                runtime_info = f"python -m {info.module}"
+            else:
+                runtime_info = f"python: {info.script}"
+            print(f"[{info.name}] Started with PID {info.process.pid} ({runtime_info})")
             self.save_pids()  # Persist PIDs after starting
         except Exception as e:
             print(f"[{info.name}] Failed to start: {e}")
@@ -565,6 +606,7 @@ class ProcessManager:
                 status.append({
                     "name": info.name,
                     "script": info.script,
+                    "module": info.module,
                     "type": info.type,
                     "enabled": info.enabled,
                     "uploaded": info.uploaded,
@@ -753,7 +795,7 @@ class ProcessManager:
 
         Args:
             name: Current program name
-            updates: Dict with optional keys: new_name, script, enabled, comment,
+            updates: Dict with optional keys: new_name, script, module, enabled, comment,
                      venv, cwd, args, environment
 
         Returns: {"success": bool, "message": str}
@@ -776,7 +818,9 @@ class ProcessManager:
 
             # Apply updates
             if "script" in updates:
-                info.script = updates["script"]
+                info.script = updates["script"] or None
+            if "module" in updates:
+                info.module = updates["module"] or None
             if "type" in updates:
                 if updates["type"] in SUPPORTED_RUNTIMES:
                     info.type = updates["type"]
@@ -818,9 +862,10 @@ class ProcessManager:
             return {"success": True, "message": f"Program '{final_name}' updated. Restart required for changes to take effect."}
         return {"success": True, "message": f"Program '{final_name}' updated successfully."}
 
-    def add_program(self, name: str, script: str, prog_type: str = RUNTIME_PYTHON,
-                    enabled: bool = True, comment: str = None, venv: str = None,
-                    cwd: str = None, args: list = None, environment: list = None) -> dict:
+    def add_program(self, name: str, script: str = None, module: str = None,
+                    prog_type: str = RUNTIME_PYTHON, enabled: bool = True,
+                    comment: str = None, venv: str = None, cwd: str = None,
+                    args: list = None, environment: list = None) -> dict:
         """Add a new program to the configuration (without ZIP file).
 
         Returns: {"success": bool, "message": str}
@@ -832,9 +877,14 @@ class ProcessManager:
             if prog_type not in SUPPORTED_RUNTIMES:
                 prog_type = RUNTIME_PYTHON
 
+            # Validate: need either script or module (for Python)
+            if not script and not module:
+                return {"success": False, "message": "Either 'script' or 'module' must be specified."}
+
             self.processes[name] = ProcessInfo(
                 name=name,
                 script=script,
+                module=module,
                 type=prog_type,
                 enabled=enabled,
                 comment=comment,
@@ -917,6 +967,7 @@ class ProcessManager:
                 return result
 
             # Add to processes immediately with "installing" status
+            # Only Python programs get a venv; node and exec don't need one
             with self.lock:
                 self.processes[name] = ProcessInfo(
                     name=name,
@@ -929,12 +980,18 @@ class ProcessManager:
                     cwd=str(program_dir),
                     args=args,
                     environment=environment,
-                    status="installing"
+                    status="installing" if prog_type != RUNTIME_EXEC else "stopped"
                 )
             # Save config outside lock to avoid deadlock
             self.save_programs()
 
-            # Run installation in background thread
+            # For exec type, no installation needed - just start if enabled
+            if prog_type == RUNTIME_EXEC:
+                if enabled:
+                    self.start_program(name)
+                return {"success": True, "message": f"Program '{name}' added successfully."}
+
+            # Run installation in background thread for Python/Node
             threading.Thread(
                 target=self._install_program_async,
                 args=(name, program_dir, prog_type, enabled),
