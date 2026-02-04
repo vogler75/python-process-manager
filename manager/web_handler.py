@@ -334,6 +334,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 prog_type=data.get("type", "python"),
                 enabled=data.get("enabled", True),
                 comment=data.get("comment"),
+                url=data.get("url"),
                 venv=data.get("venv"),
                 cwd=data.get("cwd"),
                 args=data.get("args"),

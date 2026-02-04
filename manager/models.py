@@ -34,6 +34,7 @@ class ProcessInfo:
     enabled: bool = True
     uploaded: bool = False  # True if program has upload directory (can update via ZIP)
     comment: str = None  # Optional: user notes/description for this program
+    url: str = None  # Optional: URL to open from the web UI (e.g., http://localhost:8080)
     venv: str = None  # Optional: program-specific venv path (Python only)
     cwd: str = None  # Optional: working directory for the process
     args: list = None  # Optional: command-line arguments

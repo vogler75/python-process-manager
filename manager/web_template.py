@@ -285,6 +285,7 @@ def get_html(title: str = "Process Manager") -> str:
         .btn-update { background: linear-gradient(135deg, #ff9800, #ef6c00); color: white; }
         .btn-edit { background: linear-gradient(135deg, #607d8b, #455a64); color: white; }
         .btn-add { background: linear-gradient(135deg, #00bcd4, #0097a7); color: white; }
+        .btn-open { background: linear-gradient(135deg, #26c6da, #00acc1); color: white; text-decoration: none; }
         .btn-reset { background: linear-gradient(135deg, #795548, #5d4037); color: white; }
         .reset-icon { cursor: pointer; opacity: 0.4; display: inline-block; vertical-align: middle; margin-left: 2px; }
         .reset-icon:hover { opacity: 1; }
@@ -550,6 +551,11 @@ def get_html(title: str = "Process Manager") -> str:
                         <label for="editComment">Comment (optional)</label>
                         <textarea id="editComment" name="comment" rows="2" placeholder="Description or notes about this program"></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="editUrl">URL (optional)</label>
+                        <input type="text" id="editUrl" name="url" placeholder="http://localhost:8080">
+                        <div class="hint">If set, a button to open this URL will be shown in the UI. Use {{hostname}} for the server hostname.</div>
+                    </div>
                     <div class="form-group" id="editVenvGroup">
                         <label for="editVenv">Virtual Environment (optional)</label>
                         <input type="text" id="editVenv" name="venv" placeholder=".venv or /path/to/venv">
@@ -627,6 +633,11 @@ def get_html(title: str = "Process Manager") -> str:
                     <div class="form-group">
                         <label for="addComment">Comment (optional)</label>
                         <textarea id="addComment" name="comment" rows="2" placeholder="Description or notes about this program"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="addUrl">URL (optional)</label>
+                        <input type="text" id="addUrl" name="url" placeholder="http://localhost:8080">
+                        <div class="hint">If set, a button to open this URL will be shown in the UI. Use {{hostname}} for the server hostname.</div>
                     </div>
                     <div class="form-group" id="addVenvGroup">
                         <label for="addVenv">Virtual Environment (optional)</label>
@@ -724,8 +735,13 @@ def get_html(title: str = "Process Manager") -> str:
             remove: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
             edit: '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
             add: '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>',
-            reset: '<svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>'
+            reset: '<svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>',
+            open: '<svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>'
         };
+
+        function resolveUrl(url) {
+            return url.replace(/\\{\\{hostname\\}\\}/g, window.location.hostname);
+        }
 
         async function fetchStatus() {
             try {
@@ -779,6 +795,7 @@ def get_html(title: str = "Process Manager") -> str:
 
                     <div class="process-footer">
                         <div class="action-group">
+                            ${p.url ? `<a class="btn btn-open" href="${resolveUrl(p.url)}" target="_blank" rel="noopener noreferrer" title="Open ${resolveUrl(p.url)}">${ICONS.open} <span class="btn-text">Open</span></a>` : ''}
                             <button class="btn btn-logs" onclick="openLogModal('${p.name}')" title="Logs">${ICONS.logs} <span class="btn-text">Logs</span></button>
                             <button class="btn btn-edit" onclick="openEditModal('${p.name}')" title="Edit">${ICONS.edit} <span class="btn-text">Edit</span></button>
                             <button class="btn btn-remove" onclick="removeProgram('${p.name}')" ${p.status !== 'stopped' ? 'disabled' : ''} title="Remove">${ICONS.remove} <span class="btn-text">Remove</span></button>
@@ -836,6 +853,7 @@ def get_html(title: str = "Process Manager") -> str:
                                         <button class="btn btn-logs" onclick="openLogModal('${p.name}')" title="Logs">${ICONS.logs}</button>
                                         <button class="btn btn-edit" onclick="openEditModal('${p.name}')" title="Edit">${ICONS.edit}</button>
                                         <button class="btn btn-remove" onclick="removeProgram('${p.name}')" ${p.status !== 'stopped' ? 'disabled' : ''} title="Remove">${ICONS.remove}</button>
+                                        ${p.url ? `<a class="btn btn-open" href="${resolveUrl(p.url)}" target="_blank" rel="noopener noreferrer" title="Open ${resolveUrl(p.url)}">${ICONS.open}</a>` : ''}
                                     </div>
                                 </td>
                             </tr>
@@ -1037,6 +1055,7 @@ def get_html(title: str = "Process Manager") -> str:
             document.getElementById('editModule').value = program.module || '';
             document.getElementById('editType').value = program.type || 'python';
             document.getElementById('editComment').value = program.comment || '';
+            document.getElementById('editUrl').value = program.url || '';
             document.getElementById('editVenv').value = program.venv || '';
             document.getElementById('editCwd').value = program.cwd || '';
             document.getElementById('editArgs').value = program.args ? program.args.join(' ') : '';
@@ -1091,6 +1110,7 @@ def get_html(title: str = "Process Manager") -> str:
                     module: document.getElementById('editModule').value || null,
                     type: document.getElementById('editType').value,
                     comment: document.getElementById('editComment').value || null,
+                    url: document.getElementById('editUrl').value || null,
                     venv: document.getElementById('editVenv').value || null,
                     cwd: document.getElementById('editCwd').value || null,
                     args: argsStr ? argsStr.split(/\\s+/) : null,
@@ -1247,6 +1267,7 @@ def get_html(title: str = "Process Manager") -> str:
                         module: document.getElementById('addModule').value || null,
                         type: progType,
                         comment: document.getElementById('addComment').value || null,
+                        url: document.getElementById('addUrl').value || null,
                         venv: document.getElementById('addVenv').value || null,
                         cwd: document.getElementById('addCwd').value || null,
                         args: argsStr ? argsStr.split(/\\s+/) : null,

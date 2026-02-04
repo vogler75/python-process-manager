@@ -144,6 +144,7 @@ class ProcessManager:
             program_args = prog.get("args")
             program_environment = prog.get("environment")
             program_comment = prog.get("comment")
+            program_url = prog.get("url")
             program_module = prog.get("module")  # Python module for -m execution
             # Ensure args is a list
             if program_args is not None and not isinstance(program_args, list):
@@ -160,6 +161,7 @@ class ProcessManager:
                     enabled=prog.get("enabled", True),
                     uploaded=program_uploaded,
                     comment=program_comment,
+                    url=program_url,
                     venv=program_venv,
                     cwd=program_cwd,
                     args=program_args,
@@ -173,6 +175,7 @@ class ProcessManager:
                 self.processes[name].enabled = prog.get("enabled", True)
                 self.processes[name].uploaded = program_uploaded
                 self.processes[name].comment = program_comment
+                self.processes[name].url = program_url
                 self.processes[name].venv = program_venv
                 self.processes[name].cwd = program_cwd
                 self.processes[name].args = program_args
@@ -198,6 +201,8 @@ class ProcessManager:
                     prog["uploaded"] = info.uploaded
                 if info.comment:
                     prog["comment"] = info.comment
+                if info.url:
+                    prog["url"] = info.url
                 if info.venv:
                     prog["venv"] = info.venv
                 if info.cwd:
@@ -611,6 +616,7 @@ class ProcessManager:
                     "enabled": info.enabled,
                     "uploaded": info.uploaded,
                     "comment": info.comment,
+                    "url": info.url,
                     "venv": info.venv,
                     "cwd": info.cwd,
                     "args": info.args,
@@ -828,6 +834,8 @@ class ProcessManager:
                 info.enabled = updates["enabled"]
             if "comment" in updates:
                 info.comment = updates["comment"] or None
+            if "url" in updates:
+                info.url = updates["url"] or None
             if "venv" in updates:
                 info.venv = updates["venv"] or None
             if "cwd" in updates:
@@ -864,8 +872,9 @@ class ProcessManager:
 
     def add_program(self, name: str, script: str = None, module: str = None,
                     prog_type: str = RUNTIME_PYTHON, enabled: bool = True,
-                    comment: str = None, venv: str = None, cwd: str = None,
-                    args: list = None, environment: list = None) -> dict:
+                    comment: str = None, url: str = None, venv: str = None,
+                    cwd: str = None, args: list = None,
+                    environment: list = None) -> dict:
         """Add a new program to the configuration (without ZIP file).
 
         Returns: {"success": bool, "message": str}
@@ -888,6 +897,7 @@ class ProcessManager:
                 type=prog_type,
                 enabled=enabled,
                 comment=comment,
+                url=url,
                 venv=venv,
                 cwd=cwd,
                 args=args,
