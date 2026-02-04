@@ -869,7 +869,7 @@ def get_html(title: str = "Process Manager") -> str:
                     <tbody>
                         ${filtered.map(p => `
                             <tr>
-                                <td><span class="table-name">${p.name}</span><span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span>${p.tags && p.tags.length ? '<br>' + p.tags.map(t => `<span class="tag-badge">${t}</span>`).join(' ') : ''}</td>
+                                <td><span class="table-name">${p.name}</span><span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span>${p.tags && p.tags.length ? ' ' + p.tags.map(t => `<span class="tag-badge">${t}</span>`).join(' ') : ''}</td>
                                 <td><span class="status ${p.status}">${p.status}</span></td>
                                 <td class="table-info">${p.pid || '-'}</td>
                                 <td class="table-info">${p.uptime || '-'}</td>
