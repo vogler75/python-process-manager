@@ -148,6 +148,17 @@ def get_html(title: str = "Process Manager") -> str:
             margin-top: 4px;
             font-style: italic;
         }
+        .process-tags { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+        .tag-badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.7em;
+            font-weight: 600;
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
 
         /* Runtime Type Badges */
         .type-badge {
@@ -477,7 +488,10 @@ def get_html(title: str = "Process Manager") -> str:
                 <h1>Process Manager</h1>
                 <span class="header-subtitle">{{TITLE}}</span>
             </div>
-            <div style="display: flex; gap: 15px; align-items: center;">
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <select id="tagFilter" onchange="fetchStatus()" style="padding: 8px 12px; background: rgba(13, 20, 33, 0.8); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; color: #eee; font-size: 0.9em; cursor: pointer;">
+                    <option value="">All Tags</option>
+                </select>
                 <button class="btn btn-view-toggle" onclick="toggleView()" id="btnViewToggle">Table View</button>
                 <button class="btn btn-reload-config" onclick="reloadConfig()" id="btnReloadConfig">Reload Configuration</button>
                 <button class="btn btn-reset" onclick="resetAllRestarts()" id="btnResetAll">Reset All Counters</button>
@@ -555,6 +569,11 @@ def get_html(title: str = "Process Manager") -> str:
                         <label for="editUrl">URL (optional)</label>
                         <input type="text" id="editUrl" name="url" placeholder="http://localhost:8080">
                         <div class="hint">If set, a button to open this URL will be shown in the UI. Use {{hostname}} for the server hostname.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTags">Tags (optional)</label>
+                        <input type="text" id="editTags" name="tags" placeholder="web, api, backend">
+                        <div class="hint">Comma-separated list of tags for filtering</div>
                     </div>
                     <div class="form-group" id="editVenvGroup">
                         <label for="editVenv">Virtual Environment (optional)</label>
@@ -638,6 +657,11 @@ def get_html(title: str = "Process Manager") -> str:
                         <label for="addUrl">URL (optional)</label>
                         <input type="text" id="addUrl" name="url" placeholder="http://localhost:8080">
                         <div class="hint">If set, a button to open this URL will be shown in the UI. Use {{hostname}} for the server hostname.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addTags">Tags (optional)</label>
+                        <input type="text" id="addTags" name="tags" placeholder="web, api, backend">
+                        <div class="hint">Comma-separated list of tags for filtering</div>
                     </div>
                     <div class="form-group" id="addVenvGroup">
                         <label for="addVenv">Virtual Environment (optional)</label>
@@ -756,14 +780,31 @@ def get_html(title: str = "Process Manager") -> str:
         function render(processes) {
             const container = document.getElementById('processes');
 
+            // Update tag filter dropdown
+            const tagFilter = document.getElementById('tagFilter');
+            const selectedTag = tagFilter.value;
+            const allTags = new Set();
+            processes.forEach(p => { if (p.tags) p.tags.forEach(t => allTags.add(t)); });
+            const sortedTags = [...allTags].sort();
+            const options = '<option value="">All Tags</option>' + sortedTags.map(t =>
+                `<option value="${t}" ${t === selectedTag ? 'selected' : ''}>${t}</option>`
+            ).join('');
+            tagFilter.innerHTML = options;
+
+            // Filter by selected tag
+            const filtered = selectedTag
+                ? processes.filter(p => p.tags && p.tags.includes(selectedTag))
+                : processes;
+
             // Card view (existing)
-            const cardHtml = processes.map(p => `
+            const cardHtml = filtered.map(p => `
                 <div class="process">
                     <div class="process-top">
                         <div class="process-title-group">
                             <div class="process-name" title="${p.name}">${p.name}</div>
                             <div class="process-script">${p.module ? '-m ' + p.module : p.script || '(none)'}<span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span></div>
                             ${p.comment ? `<div class="process-comment">${p.comment}</div>` : ''}
+                            ${p.tags && p.tags.length ? `<div class="process-tags">${p.tags.map(t => `<span class="tag-badge">${t}</span>`).join('')}</div>` : ''}
                         </div>
                         <span class="status ${p.status}">${p.status}</span>
                     </div>
@@ -826,9 +867,9 @@ def get_html(title: str = "Process Manager") -> str:
                         </tr>
                     </thead>
                     <tbody>
-                        ${processes.map(p => `
+                        ${filtered.map(p => `
                             <tr>
-                                <td><span class="table-name">${p.name}</span><span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span></td>
+                                <td><span class="table-name">${p.name}</span><span class="type-badge ${p.type || 'python'}">${p.type || 'python'}</span>${p.tags && p.tags.length ? '<br>' + p.tags.map(t => `<span class="tag-badge">${t}</span>`).join(' ') : ''}</td>
                                 <td><span class="status ${p.status}">${p.status}</span></td>
                                 <td class="table-info">${p.pid || '-'}</td>
                                 <td class="table-info">${p.uptime || '-'}</td>
@@ -1056,6 +1097,7 @@ def get_html(title: str = "Process Manager") -> str:
             document.getElementById('editType').value = program.type || 'python';
             document.getElementById('editComment').value = program.comment || '';
             document.getElementById('editUrl').value = program.url || '';
+            document.getElementById('editTags').value = program.tags ? program.tags.join(', ') : '';
             document.getElementById('editVenv').value = program.venv || '';
             document.getElementById('editCwd').value = program.cwd || '';
             document.getElementById('editArgs').value = program.args ? program.args.join(' ') : '';
@@ -1093,6 +1135,7 @@ def get_html(title: str = "Process Manager") -> str:
             const originalName = document.getElementById('editOriginalName').value;
             const argsStr = document.getElementById('editArgs').value.trim();
             const envStr = document.getElementById('editEnvironment').value.trim();
+            const tagsStr = document.getElementById('editTags').value.trim();
             const zipFile = document.getElementById('editZipFile').files[0];
 
             try {
@@ -1111,6 +1154,7 @@ def get_html(title: str = "Process Manager") -> str:
                     type: document.getElementById('editType').value,
                     comment: document.getElementById('editComment').value || null,
                     url: document.getElementById('editUrl').value || null,
+                    tags: tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : null,
                     venv: document.getElementById('editVenv').value || null,
                     cwd: document.getElementById('editCwd').value || null,
                     args: argsStr ? argsStr.split(/\\s+/) : null,
@@ -1233,6 +1277,7 @@ def get_html(title: str = "Process Manager") -> str:
             const zipFile = document.getElementById('addZipFile').files[0];
             const argsStr = document.getElementById('addArgs').value.trim();
             const envStr = document.getElementById('addEnvironment').value.trim();
+            const addTagsStr = document.getElementById('addTags').value.trim();
 
             try {
                 let response, result;
@@ -1268,6 +1313,7 @@ def get_html(title: str = "Process Manager") -> str:
                         type: progType,
                         comment: document.getElementById('addComment').value || null,
                         url: document.getElementById('addUrl').value || null,
+                        tags: addTagsStr ? addTagsStr.split(',').map(t => t.trim()).filter(t => t) : null,
                         venv: document.getElementById('addVenv').value || null,
                         cwd: document.getElementById('addCwd').value || null,
                         args: argsStr ? argsStr.split(/\\s+/) : null,

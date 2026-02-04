@@ -335,6 +335,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 enabled=data.get("enabled", True),
                 comment=data.get("comment"),
                 url=data.get("url"),
+                tags=data.get("tags"),
                 venv=data.get("venv"),
                 cwd=data.get("cwd"),
                 args=data.get("args"),
