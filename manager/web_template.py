@@ -391,6 +391,138 @@ def get_html(title: str = "Process Manager") -> str:
             padding: 0 10px;
         }
 
+        /* Host Metrics Bar */
+        .host-metrics-bar {
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: stretch;
+            cursor: pointer;
+        }
+        .host-metrics-bar.collapsed .host-metric-widget { display: none; }
+        .host-metrics-bar.collapsed .host-metrics-summary { display: flex; }
+        .host-metrics-summary {
+            display: none;
+            align-items: center;
+            gap: 16px;
+            color: #aaa;
+            font-size: 0.85em;
+            font-family: 'Monaco', monospace;
+            width: 100%;
+        }
+        .host-metrics-summary .summary-item { display: flex; align-items: center; gap: 4px; }
+        .host-metrics-summary .summary-label { color: #666; font-size: 0.8em; text-transform: uppercase; }
+        .host-metrics-toggle {
+            color: #555;
+            font-size: 0.7em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .host-metric-widget {
+            flex: 1;
+            min-width: 180px;
+            background: rgba(13, 20, 33, 0.5);
+            border-radius: 10px;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .host-metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .host-metric-label {
+            color: #666;
+            font-size: 0.7em;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .host-metric-value {
+            font-family: 'Monaco', monospace;
+            font-size: 1em;
+            font-weight: 700;
+        }
+        .host-metric-detail {
+            color: #555;
+            font-size: 0.75em;
+            font-family: 'Monaco', monospace;
+        }
+        .host-metric-chart {
+            height: 30px;
+            opacity: 0.9;
+        }
+        .host-metric-chart svg { display: block; width: 100%; height: 100%; }
+
+        /* Host Metrics Full Page */
+        .host-metrics-page {
+            display: none;
+            padding: 20px;
+        }
+        .host-metrics-page.active { display: block; }
+        .host-metrics-page .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 20px;
+        }
+        .host-chart-card {
+            background: rgba(13, 20, 33, 0.6);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .host-chart-card h3 {
+            color: #00d4ff;
+            font-size: 0.95em;
+            margin-bottom: 4px;
+        }
+        .host-chart-current {
+            font-family: 'Monaco', monospace;
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .host-chart-large {
+            height: 120px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .host-chart-large svg { display: block; width: 100%; height: 100%; }
+        .host-chart-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+            font-size: 0.8em;
+            color: #888;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-color { width: 12px; height: 3px; border-radius: 2px; }
+        .host-info-panel {
+            background: rgba(13, 20, 33, 0.6);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .host-info-item { display: flex; flex-direction: column; gap: 2px; }
+        .host-info-label { color: #555; font-size: 0.75em; text-transform: uppercase; font-weight: 600; }
+        .host-info-value { color: #ccc; font-family: 'Monaco', monospace; font-size: 0.95em; }
+
         /* Footer */
         .footer {
             padding: 10px 25px;
@@ -495,6 +627,7 @@ def get_html(title: str = "Process Manager") -> str:
                 <button class="btn btn-view-toggle" onclick="toggleView()" id="btnViewToggle">Table View</button>
                 <button class="btn btn-reload-config" onclick="reloadConfig()" id="btnReloadConfig">Reload Configuration</button>
                 <button class="btn btn-reset" onclick="resetAllRestarts()" id="btnResetAll">Reset All Counters</button>
+                <button class="btn btn-view-toggle" onclick="toggleHostPage()" id="btnHostMetrics" style="background: linear-gradient(135deg, #00897b, #00695c);">Host Metrics</button>
                 <button class="btn btn-add" onclick="openAddModal()">+ New Program</button>
                 <div class="header-status" id="headerStatus">
                     <span class="dot"></span>
@@ -502,7 +635,16 @@ def get_html(title: str = "Process Manager") -> str:
                 </div>
             </div>
         </div>
+        <div class="host-metrics-bar" id="hostMetricsBar" onclick="toggleHostMetricsBar()">
+            <div class="host-metrics-summary" id="hostMetricsSummary"></div>
+            <div class="host-metric-widget" id="hostCpuWidget"></div>
+            <div class="host-metric-widget" id="hostMemWidget"></div>
+            <div class="host-metric-widget" id="hostDiskWidget"></div>
+            <div class="host-metric-widget" id="hostNetWidget"></div>
+            <div class="host-metrics-toggle" id="hostMetricsToggle">Host</div>
+        </div>
         <div class="process-list" id="processes"></div>
+        <div class="host-metrics-page" id="hostMetricsPage"></div>
         <div class="footer">
             Auto-refreshes every 2 seconds
         </div>
@@ -700,6 +842,8 @@ def get_html(title: str = "Process Manager") -> str:
         let linesPerPage = 200;
         let totalLines = 0;
         let tailInterval = null;
+        let hostPageVisible = false;
+        let lastHostData = null;
 
         function getCPUColor(data) {
             if (!data || data.length === 0) return '#4caf50';
@@ -750,6 +894,111 @@ def get_html(title: str = "Process Manager") -> str:
             </svg>`;
         }
 
+        function renderDualSparkline(data1, data2, color1, color2, width = 400, height = 60) {
+            if ((!data1 || data1.length === 0) && (!data2 || data2.length === 0)) {
+                return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
+            }
+            const d1 = data1 ? data1.slice(-300) : [];
+            const d2 = data2 ? data2.slice(-300) : [];
+            const maxLen = Math.max(d1.length, d2.length);
+            const maxVal = Math.max(...d1, ...d2, 1);
+            const padding = 1;
+
+            function toPoints(data) {
+                if (!data.length) return '';
+                const stepX = width / Math.max(data.length - 1, 1);
+                return data.map((val, i) => {
+                    const x = i * stepX;
+                    const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                    return `${x},${y}`;
+                }).join(' ');
+            }
+
+            const p1 = toPoints(d1);
+            const p2 = toPoints(d2);
+
+            function areaPoints(pts) {
+                if (!pts) return '';
+                const arr = pts.split(' ');
+                return `${arr[0].split(',')[0]},${height} ${pts} ${arr[arr.length-1].split(',')[0]},${height}`;
+            }
+
+            return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display: block; width: 100%; height: 100%;">
+                ${p1 ? `<polyline fill="${color1}" fill-opacity="0.12" points="${areaPoints(p1)}"/>
+                <polyline fill="none" stroke="${color1}" stroke-width="1.2" stroke-linejoin="round" points="${p1}"/>` : ''}
+                ${p2 ? `<polyline fill="${color2}" fill-opacity="0.12" points="${areaPoints(p2)}"/>
+                <polyline fill="none" stroke="${color2}" stroke-width="1.2" stroke-linejoin="round" points="${p2}"/>` : ''}
+            </svg>`;
+        }
+
+        function renderLargeChart(data, color, width = 800, height = 120, maxOverride = null) {
+            if (!data || data.length === 0) {
+                return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
+            }
+            const maxVal = maxOverride || Math.max(...data, 1);
+            const padding = 2;
+            const stepX = width / Math.max(data.length - 1, 1);
+            const points = data.map((val, i) => {
+                const x = i * stepX;
+                const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                return `${x},${y}`;
+            }).join(' ');
+            const area = `${data.length > 0 ? '0' : '0'},${height} ${points} ${((data.length - 1) * stepX)},${height}`;
+
+            return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display: block; width: 100%; height: 100%;">
+                <polyline fill="${color}" fill-opacity="0.15" points="${area}"/>
+                <polyline fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" points="${points}"/>
+            </svg>`;
+        }
+
+        function renderDualLargeChart(data1, data2, color1, color2, width = 800, height = 120) {
+            if ((!data1 || data1.length === 0) && (!data2 || data2.length === 0)) {
+                return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
+            }
+            const d1 = data1 || [];
+            const d2 = data2 || [];
+            const maxVal = Math.max(...d1, ...d2, 1);
+            const padding = 2;
+
+            function makePoints(data) {
+                const stepX = width / Math.max(data.length - 1, 1);
+                return data.map((val, i) => {
+                    const x = i * stepX;
+                    const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                    return `${x},${y}`;
+                }).join(' ');
+            }
+
+            function makeArea(points, data) {
+                const stepX = width / Math.max(data.length - 1, 1);
+                return `0,${height} ${points} ${((data.length - 1) * stepX)},${height}`;
+            }
+
+            const p1 = d1.length ? makePoints(d1) : '';
+            const p2 = d2.length ? makePoints(d2) : '';
+
+            return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display: block; width: 100%; height: 100%;">
+                ${p1 ? `<polyline fill="${color1}" fill-opacity="0.12" points="${makeArea(p1, d1)}"/>
+                <polyline fill="none" stroke="${color1}" stroke-width="1.5" stroke-linejoin="round" points="${p1}"/>` : ''}
+                ${p2 ? `<polyline fill="${color2}" fill-opacity="0.12" points="${makeArea(p2, d2)}"/>
+                <polyline fill="none" stroke="${color2}" stroke-width="1.5" stroke-linejoin="round" points="${p2}"/>` : ''}
+            </svg>`;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            if (bytes < 1024) return bytes + ' B/s';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB/s';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB/s';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB/s';
+        }
+
+        function getPercentColor(pct) {
+            if (pct > 80) return '#f44336';
+            if (pct > 50) return '#ff9800';
+            return '#4caf50';
+        }
+
         const ICONS = {
             start: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
             stop: '<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>',
@@ -771,7 +1020,14 @@ def get_html(title: str = "Process Manager") -> str:
             try {
                 const res = await fetch('/api/status');
                 const data = await res.json();
-                render(data);
+                const processes = Array.isArray(data) ? data : data.processes;
+                const host = data.host || null;
+                render(processes);
+                if (host) {
+                    lastHostData = host;
+                    renderHostMetricsBar(host);
+                    if (hostPageVisible) renderHostMetricsPage(host);
+                }
             } catch (e) {
                 console.error('Failed to fetch status:', e);
             }
@@ -1047,6 +1303,9 @@ def get_html(title: str = "Process Manager") -> str:
                 if (document.getElementById('addModal').classList.contains('active')) {
                     closeAddModal();
                 }
+                if (hostPageVisible) {
+                    toggleHostPage();
+                }
             }
         });
 
@@ -1081,7 +1340,8 @@ def get_html(title: str = "Process Manager") -> str:
 
             // Always fetch fresh data
             const res = await fetch('/api/status');
-            const programs = await res.json();
+            const data = await res.json();
+            const programs = Array.isArray(data) ? data : data.processes;
             const program = programs.find(p => p.name === name);
 
             if (!program) {
@@ -1450,6 +1710,146 @@ def get_html(title: str = "Process Manager") -> str:
             } else {
                 container.classList.add('view-card');
                 btn.textContent = 'Table View';
+            }
+        })();
+
+        function renderHostMetricsBar(h) {
+            const cpuColor = getPercentColor(h.cpu_percent);
+            const memColor = getPercentColor(h.memory_percent);
+
+            document.getElementById('hostCpuWidget').innerHTML = `
+                <div class="host-metric-header">
+                    <span class="host-metric-label">CPU</span>
+                    <span class="host-metric-value" style="color: ${cpuColor}">${h.cpu_percent.toFixed(1)}%</span>
+                </div>
+                <div class="host-metric-detail">${h.cpu_count} cores</div>
+                <div class="host-metric-chart">${renderSparkline(h.cpu_history.slice(-300), 200, 30)}</div>
+            `;
+
+            document.getElementById('hostMemWidget').innerHTML = `
+                <div class="host-metric-header">
+                    <span class="host-metric-label">Memory</span>
+                    <span class="host-metric-value" style="color: ${memColor}">${h.memory_percent.toFixed(1)}%</span>
+                </div>
+                <div class="host-metric-detail">${h.memory_used_gb} / ${h.memory_total_gb} GB</div>
+                <div class="host-metric-chart">${renderSparkline(h.memory_history.slice(-300), 200, 30)}</div>
+            `;
+
+            document.getElementById('hostDiskWidget').innerHTML = `
+                <div class="host-metric-header">
+                    <span class="host-metric-label">Disk I/O</span>
+                    <span class="host-metric-value" style="color: #26c6da; font-size: 0.8em;">R ${formatBytes(h.disk_read_rate)} W ${formatBytes(h.disk_write_rate)}</span>
+                </div>
+                <div class="host-metric-chart">${renderDualSparkline(h.disk_read_history.slice(-300), h.disk_write_history.slice(-300), '#26c6da', '#ff9800', 200, 30)}</div>
+            `;
+
+            document.getElementById('hostNetWidget').innerHTML = `
+                <div class="host-metric-header">
+                    <span class="host-metric-label">Network</span>
+                    <span class="host-metric-value" style="color: #7c4dff; font-size: 0.8em;">&uarr;${formatBytes(h.net_sent_rate)} &darr;${formatBytes(h.net_recv_rate)}</span>
+                </div>
+                <div class="host-metric-chart">${renderDualSparkline(h.net_sent_history.slice(-300), h.net_recv_history.slice(-300), '#7c4dff', '#4caf50', 200, 30)}</div>
+            `;
+
+            document.getElementById('hostMetricsSummary').innerHTML = `
+                <span class="summary-item"><span class="summary-label">CPU</span> <span style="color:${cpuColor}">${h.cpu_percent.toFixed(1)}%</span></span>
+                <span class="summary-item"><span class="summary-label">RAM</span> <span style="color:${memColor}">${h.memory_percent.toFixed(1)}%</span></span>
+                <span class="summary-item"><span class="summary-label">Disk</span> R ${formatBytes(h.disk_read_rate)} W ${formatBytes(h.disk_write_rate)}</span>
+                <span class="summary-item"><span class="summary-label">Net</span> &uarr;${formatBytes(h.net_sent_rate)} &darr;${formatBytes(h.net_recv_rate)}</span>
+            `;
+        }
+
+        function renderHostMetricsPage(h) {
+            const cpuColor = getPercentColor(h.cpu_percent);
+            const memColor = getPercentColor(h.memory_percent);
+
+            document.getElementById('hostMetricsPage').innerHTML = `
+                <div class="host-info-panel" style="margin-bottom: 20px;">
+                    <div class="host-info-item">
+                        <span class="host-info-label">Operating System</span>
+                        <span class="host-info-value">${h.os}</span>
+                    </div>
+                    <div class="host-info-item">
+                        <span class="host-info-label">CPU Cores</span>
+                        <span class="host-info-value">${h.cpu_count}</span>
+                    </div>
+                    <div class="host-info-item">
+                        <span class="host-info-label">Total Memory</span>
+                        <span class="host-info-value">${h.memory_total_gb} GB</span>
+                    </div>
+                    <div class="host-info-item">
+                        <span class="host-info-label">History</span>
+                        <span class="host-info-value">${h.cpu_history.length}s (~${Math.round(h.cpu_history.length / 60)} min)</span>
+                    </div>
+                </div>
+                <div class="metrics-grid">
+                    <div class="host-chart-card">
+                        <h3>CPU Usage</h3>
+                        <div class="host-chart-current" style="color: ${cpuColor}">${h.cpu_percent.toFixed(1)}% <span style="font-size: 0.5em; color: #666;">(${h.cpu_count} cores)</span></div>
+                        <div class="host-chart-large">${renderLargeChart(h.cpu_history, cpuColor, 800, 120, 100)}</div>
+                    </div>
+                    <div class="host-chart-card">
+                        <h3>Memory Usage</h3>
+                        <div class="host-chart-current" style="color: ${memColor}">${h.memory_percent.toFixed(1)}% <span style="font-size: 0.5em; color: #666;">(${h.memory_used_gb} / ${h.memory_total_gb} GB)</span></div>
+                        <div class="host-chart-large">${renderLargeChart(h.memory_history, memColor, 800, 120, 100)}</div>
+                    </div>
+                    <div class="host-chart-card">
+                        <h3>Disk I/O</h3>
+                        <div class="host-chart-current" style="color: #26c6da">
+                            Read ${formatBytes(h.disk_read_rate)}
+                            <span style="color: #ff9800; margin-left: 16px;">Write ${formatBytes(h.disk_write_rate)}</span>
+                        </div>
+                        <div class="host-chart-large">${renderDualLargeChart(h.disk_read_history, h.disk_write_history, '#26c6da', '#ff9800', 800, 120)}</div>
+                        <div class="host-chart-legend">
+                            <span class="legend-item"><span class="legend-color" style="background: #26c6da;"></span> Read</span>
+                            <span class="legend-item"><span class="legend-color" style="background: #ff9800;"></span> Write</span>
+                        </div>
+                    </div>
+                    <div class="host-chart-card">
+                        <h3>Network I/O</h3>
+                        <div class="host-chart-current" style="color: #7c4dff">
+                            &uarr; ${formatBytes(h.net_sent_rate)}
+                            <span style="color: #4caf50; margin-left: 16px;">&darr; ${formatBytes(h.net_recv_rate)}</span>
+                        </div>
+                        <div class="host-chart-large">${renderDualLargeChart(h.net_sent_history, h.net_recv_history, '#7c4dff', '#4caf50', 800, 120)}</div>
+                        <div class="host-chart-legend">
+                            <span class="legend-item"><span class="legend-color" style="background: #7c4dff;"></span> Sent</span>
+                            <span class="legend-item"><span class="legend-color" style="background: #4caf50;"></span> Received</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleHostMetricsBar() {
+            const bar = document.getElementById('hostMetricsBar');
+            const isCollapsed = bar.classList.toggle('collapsed');
+            localStorage.setItem('hostMetricsCollapsed', isCollapsed ? '1' : '0');
+        }
+
+        function toggleHostPage() {
+            hostPageVisible = !hostPageVisible;
+            const page = document.getElementById('hostMetricsPage');
+            const processList = document.getElementById('processes');
+            const btn = document.getElementById('btnHostMetrics');
+            if (hostPageVisible) {
+                page.classList.add('active');
+                processList.style.display = 'none';
+                btn.textContent = 'Processes';
+                btn.style.background = 'linear-gradient(135deg, #673ab7, #512da8)';
+                if (lastHostData) renderHostMetricsPage(lastHostData);
+            } else {
+                page.classList.remove('active');
+                processList.style.display = '';
+                btn.textContent = 'Host Metrics';
+                btn.style.background = 'linear-gradient(135deg, #00897b, #00695c)';
+            }
+        }
+
+        // Restore host metrics bar state
+        (function initHostBar() {
+            if (localStorage.getItem('hostMetricsCollapsed') === '1') {
+                document.getElementById('hostMetricsBar').classList.add('collapsed');
             }
         })();
 
