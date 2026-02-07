@@ -612,6 +612,8 @@ def get_html(title: str = "Process Manager") -> str:
         <div class="host-metrics-bar" id="hostMetricsBar">
             <div class="host-metric-widget" id="hostCpuWidget"></div>
             <div class="host-metric-widget" id="hostMemWidget"></div>
+            <div class="host-metric-widget" id="hostDiskWidget"></div>
+            <div class="host-metric-widget" id="hostNetWidget"></div>
         </div>
         <div class="process-list" id="processes"></div>
         <div class="host-metrics-page" id="hostMetricsPage"></div>
@@ -1716,6 +1718,22 @@ def get_html(title: str = "Process Manager") -> str:
                 </div>
                 <div class="host-metric-detail">${h.memory_used_gb} / ${h.memory_total_gb} GB</div>
                 <div class="host-metric-chart">${renderSparkline(h.memory_history.slice(-300), 200, 30)}</div>
+            `;
+
+            document.getElementById('hostDiskWidget').innerHTML = `
+                <div class="host-metric-header">
+                    <span class="host-metric-label">Disk I/O</span>
+                    <span class="host-metric-value" style="color: #26c6da; font-size: 0.8em;">R ${formatBytes(h.disk_read_rate)} W ${formatBytes(h.disk_write_rate)}</span>
+                </div>
+                <div class="host-metric-chart">${renderDualSparkline(h.disk_read_history.slice(-300), h.disk_write_history.slice(-300), '#26c6da', '#ff9800', 200, 30)}</div>
+            `;
+
+            document.getElementById('hostNetWidget').innerHTML = `
+                <div class="host-metric-header">
+                    <span class="host-metric-label">Network</span>
+                    <span class="host-metric-value" style="color: #7c4dff; font-size: 0.8em;">&uarr;${formatBytes(h.net_sent_rate)} &darr;${formatBytes(h.net_recv_rate)}</span>
+                </div>
+                <div class="host-metric-chart">${renderDualSparkline(h.net_sent_history.slice(-300), h.net_recv_history.slice(-300), '#7c4dff', '#4caf50', 200, 30)}</div>
             `;
         }
 
