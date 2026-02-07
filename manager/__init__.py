@@ -10,8 +10,8 @@ the Free Software Foundation, either version 3 of the License, or
 """
 
 from .manager import ProcessManager
-from .models import ProcessInfo
+from .models import ProcessInfo, HostMetrics
 from .web_handler import WebHandler
 
 __version__ = "1.0.0"
-__all__ = ["ProcessManager", "ProcessInfo", "WebHandler"]
+__all__ = ["ProcessManager", "ProcessInfo", "HostMetrics", "WebHandler"]

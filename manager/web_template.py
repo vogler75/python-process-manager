@@ -898,35 +898,37 @@ def get_html(title: str = "Process Manager") -> str:
             if ((!data1 || data1.length === 0) && (!data2 || data2.length === 0)) {
                 return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
             }
-            const d1 = data1 ? data1.slice(-300) : [];
-            const d2 = data2 ? data2.slice(-300) : [];
-            const maxLen = Math.max(d1.length, d2.length);
-            const maxVal = Math.max(...d1, ...d2, 1);
+            const d1 = data1 || [];
+            const d2 = data2 || [];
+            // Use actual max value, don't force minimum of 1
+            const rawMax = Math.max(...d1, ...d2);
+            const maxVal = rawMax > 0 ? rawMax : 1;
             const padding = 1;
 
-            function toPoints(data) {
-                if (!data.length) return '';
+            function makePoints(data) {
                 const stepX = width / Math.max(data.length - 1, 1);
                 return data.map((val, i) => {
                     const x = i * stepX;
-                    const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                    // When all values are 0, render at bottom
+                    const y = rawMax > 0 
+                        ? height - padding - ((val / maxVal) * (height - padding * 2))
+                        : height - padding;
                     return `${x},${y}`;
                 }).join(' ');
             }
 
-            const p1 = toPoints(d1);
-            const p2 = toPoints(d2);
-
-            function areaPoints(pts) {
-                if (!pts) return '';
-                const arr = pts.split(' ');
-                return `${arr[0].split(',')[0]},${height} ${pts} ${arr[arr.length-1].split(',')[0]},${height}`;
+            function makeArea(points, data) {
+                const stepX = width / Math.max(data.length - 1, 1);
+                return `0,${height} ${points} ${((data.length - 1) * stepX)},${height}`;
             }
 
+            const p1 = d1.length ? makePoints(d1) : '';
+            const p2 = d2.length ? makePoints(d2) : '';
+
             return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display: block; width: 100%; height: 100%;">
-                ${p1 ? `<polyline fill="${color1}" fill-opacity="0.12" points="${areaPoints(p1)}"/>
+                ${p1 ? `<polyline fill="${color1}" fill-opacity="0.12" points="${makeArea(p1, d1)}"/>
                 <polyline fill="none" stroke="${color1}" stroke-width="1.2" stroke-linejoin="round" points="${p1}"/>` : ''}
-                ${p2 ? `<polyline fill="${color2}" fill-opacity="0.12" points="${areaPoints(p2)}"/>
+                ${p2 ? `<polyline fill="${color2}" fill-opacity="0.12" points="${makeArea(p2, d2)}"/>
                 <polyline fill="none" stroke="${color2}" stroke-width="1.2" stroke-linejoin="round" points="${p2}"/>` : ''}
             </svg>`;
         }
@@ -957,14 +959,19 @@ def get_html(title: str = "Process Manager") -> str:
             }
             const d1 = data1 || [];
             const d2 = data2 || [];
-            const maxVal = Math.max(...d1, ...d2, 1);
+            // Use actual max value, don't force minimum of 1
+            const rawMax = Math.max(...d1, ...d2);
+            const maxVal = rawMax > 0 ? rawMax : 1;
             const padding = 2;
 
             function makePoints(data) {
                 const stepX = width / Math.max(data.length - 1, 1);
                 return data.map((val, i) => {
                     const x = i * stepX;
-                    const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                    // When all values are 0, render at bottom
+                    const y = rawMax > 0 
+                        ? height - padding - ((val / maxVal) * (height - padding * 2))
+                        : height - padding;
                     return `${x},${y}`;
                 }).join(' ');
             }

@@ -22,9 +22,10 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 import json
+import platform
 import yaml
 
-from .models import ProcessInfo, RUNTIME_PYTHON, RUNTIME_NODE, RUNTIME_EXEC, SUPPORTED_RUNTIMES
+from .models import ProcessInfo, HostMetrics, RUNTIME_PYTHON, RUNTIME_NODE, RUNTIME_EXEC, SUPPORTED_RUNTIMES
 
 try:
     import psutil
@@ -55,6 +56,7 @@ class ProcessManager:
         self.venv_python = None  # Will be set in load_config()
         self.node_path = None  # Will be set in load_config()
         self.global_cwd = None  # Will be set in load_config()
+        self.host_metrics = self._init_host_metrics()
 
         # Create uploaded programs directory if it doesn't exist
         self.uploaded_dir.mkdir(exist_ok=True)
@@ -352,6 +354,111 @@ class ProcessManager:
             info._psutil_process = None
             info.cpu_history.append(0.0)
 
+    def _init_host_metrics(self) -> HostMetrics:
+        """Initialize host metrics with static system info."""
+        metrics = HostMetrics()
+        if PSUTIL_AVAILABLE:
+            try:
+                metrics.cpu_count = psutil.cpu_count() or 0
+                mem = psutil.virtual_memory()
+                metrics.memory_total_gb = round(mem.total / (1024 ** 3), 1)
+            except Exception:
+                pass
+        metrics.os_name = f"{platform.system()} {platform.release()}"
+        return metrics
+
+    def collect_host_metrics(self):
+        """Collect host OS metrics and append to history."""
+        if not PSUTIL_AVAILABLE:
+            return
+
+        m = self.host_metrics
+        try:
+            m.cpu_percent_history.append(psutil.cpu_percent(interval=None))
+        except Exception:
+            m.cpu_percent_history.append(0.0)
+
+        try:
+            mem = psutil.virtual_memory()
+            m.memory_percent_history.append(mem.percent)
+            m.memory_used_gb_history.append(round(mem.used / (1024 ** 3), 2))
+        except Exception:
+            m.memory_percent_history.append(0.0)
+            m.memory_used_gb_history.append(0.0)
+
+        try:
+            disk = psutil.disk_io_counters()
+            if disk and m._prev_initialized:
+                read_rate = max(0, disk.read_bytes - m._prev_disk_read)
+                write_rate = max(0, disk.write_bytes - m._prev_disk_write)
+                m.disk_read_rate_history.append(read_rate)
+                m.disk_write_rate_history.append(write_rate)
+            elif disk:
+                m.disk_read_rate_history.append(0)
+                m.disk_write_rate_history.append(0)
+            else:
+                m.disk_read_rate_history.append(0)
+                m.disk_write_rate_history.append(0)
+            if disk:
+                m._prev_disk_read = disk.read_bytes
+                m._prev_disk_write = disk.write_bytes
+        except Exception:
+            m.disk_read_rate_history.append(0)
+            m.disk_write_rate_history.append(0)
+
+        try:
+            net = psutil.net_io_counters()
+            if net and m._prev_initialized:
+                sent_rate = max(0, net.bytes_sent - m._prev_net_sent)
+                recv_rate = max(0, net.bytes_recv - m._prev_net_recv)
+                m.net_sent_rate_history.append(sent_rate)
+                m.net_recv_rate_history.append(recv_rate)
+            elif net:
+                m.net_sent_rate_history.append(0)
+                m.net_recv_rate_history.append(0)
+            else:
+                m.net_sent_rate_history.append(0)
+                m.net_recv_rate_history.append(0)
+            if net:
+                m._prev_net_sent = net.bytes_sent
+                m._prev_net_recv = net.bytes_recv
+        except Exception:
+            m.net_sent_rate_history.append(0)
+            m.net_recv_rate_history.append(0)
+
+        m._prev_initialized = True
+
+    def get_host_status(self) -> dict:
+        """Get current host metrics as a dict for API response."""
+        m = self.host_metrics
+        cpu_hist = list(m.cpu_percent_history)
+        mem_hist = list(m.memory_percent_history)
+        mem_used_hist = list(m.memory_used_gb_history)
+        disk_r_hist = list(m.disk_read_rate_history)
+        disk_w_hist = list(m.disk_write_rate_history)
+        net_s_hist = list(m.net_sent_rate_history)
+        net_r_hist = list(m.net_recv_rate_history)
+
+        return {
+            "cpu_count": m.cpu_count,
+            "memory_total_gb": m.memory_total_gb,
+            "os": m.os_name,
+            "cpu_percent": round(cpu_hist[-1], 1) if cpu_hist else 0.0,
+            "memory_percent": round(mem_hist[-1], 1) if mem_hist else 0.0,
+            "memory_used_gb": mem_used_hist[-1] if mem_used_hist else 0.0,
+            "disk_read_rate": disk_r_hist[-1] if disk_r_hist else 0,
+            "disk_write_rate": disk_w_hist[-1] if disk_w_hist else 0,
+            "net_sent_rate": net_s_hist[-1] if net_s_hist else 0,
+            "net_recv_rate": net_r_hist[-1] if net_r_hist else 0,
+            "cpu_history": [round(x, 1) for x in cpu_hist],
+            "memory_history": [round(x, 1) for x in mem_hist],
+            "memory_used_history": mem_used_hist,
+            "disk_read_history": disk_r_hist,
+            "disk_write_history": disk_w_hist,
+            "net_sent_history": net_s_hist,
+            "net_recv_history": net_r_hist,
+        }
+
     def rotate_log_if_needed(self, info: ProcessInfo):
         """Check log file size and rotate if needed using copytruncate method.
 
@@ -587,6 +694,9 @@ class ProcessManager:
                 for info in self.processes.values():
                     self.collect_cpu_usage(info)
                     self.rotate_log_if_needed(info)
+
+                # Collect host OS metrics
+                self.collect_host_metrics()
 
             time.sleep(1)
 

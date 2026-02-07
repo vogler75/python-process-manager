@@ -67,7 +67,11 @@ class WebHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps(self.manager.get_status()).encode())
+            status = {
+                "processes": self.manager.get_status(),
+                "host": self.manager.get_host_status()
+            }
+            self.wfile.write(json.dumps(status).encode())
         elif self.path.startswith("/api/logs/"):
             # Parse: /api/logs/{name}?lines=100&offset=0
             parsed = urlparse(self.path)

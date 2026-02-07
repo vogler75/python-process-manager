@@ -17,6 +17,34 @@ from collections import deque
 # Number of CPU history points to keep (at 1 sample per second = 300 points = 5 minutes of history)
 CPU_HISTORY_SIZE = 300
 
+# Number of host metrics history points (at 1 sample per second = 3600 points = 1 hour)
+HOST_METRICS_HISTORY_SIZE = 3600
+
+
+@dataclass
+class HostMetrics:
+    """Host OS metrics with in-memory history."""
+    # Static info (set once at init)
+    cpu_count: int = 0
+    memory_total_gb: float = 0.0
+    os_name: str = ""
+
+    # History deques (populated every second)
+    cpu_percent_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+    memory_percent_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+    memory_used_gb_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+    disk_read_rate_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+    disk_write_rate_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+    net_sent_rate_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+    net_recv_rate_history: deque = field(default_factory=lambda: deque(maxlen=HOST_METRICS_HISTORY_SIZE))
+
+    # Previous counters for delta calculation
+    _prev_disk_read: int = 0
+    _prev_disk_write: int = 0
+    _prev_net_sent: int = 0
+    _prev_net_recv: int = 0
+    _prev_initialized: bool = False
+
 
 # Supported runtime types
 RUNTIME_PYTHON = "python"
