@@ -400,32 +400,6 @@ def get_html(title: str = "Process Manager") -> str:
             gap: 12px;
             flex-wrap: wrap;
             align-items: stretch;
-            cursor: pointer;
-        }
-        .host-metrics-bar.collapsed .host-metric-widget { display: none; }
-        .host-metrics-bar.collapsed .host-metrics-summary { display: flex; }
-        .host-metrics-summary {
-            display: none;
-            align-items: center;
-            gap: 16px;
-            color: #aaa;
-            font-size: 0.85em;
-            font-family: 'Monaco', monospace;
-            width: 100%;
-        }
-        .host-metrics-summary .summary-item { display: flex; align-items: center; gap: 4px; }
-        .host-metrics-summary .summary-label { color: #666; font-size: 0.8em; text-transform: uppercase; }
-        .host-metrics-toggle {
-            color: #555;
-            font-size: 0.7em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-left: auto;
-            flex-shrink: 0;
         }
         .host-metric-widget {
             flex: 1;
@@ -635,13 +609,9 @@ def get_html(title: str = "Process Manager") -> str:
                 </div>
             </div>
         </div>
-        <div class="host-metrics-bar" id="hostMetricsBar" onclick="toggleHostMetricsBar()">
-            <div class="host-metrics-summary" id="hostMetricsSummary"></div>
+        <div class="host-metrics-bar" id="hostMetricsBar">
             <div class="host-metric-widget" id="hostCpuWidget"></div>
             <div class="host-metric-widget" id="hostMemWidget"></div>
-            <div class="host-metric-widget" id="hostDiskWidget"></div>
-            <div class="host-metric-widget" id="hostNetWidget"></div>
-            <div class="host-metrics-toggle" id="hostMetricsToggle">Host</div>
         </div>
         <div class="process-list" id="processes"></div>
         <div class="host-metrics-page" id="hostMetricsPage"></div>
@@ -898,18 +868,20 @@ def get_html(title: str = "Process Manager") -> str:
             if ((!data1 || data1.length === 0) && (!data2 || data2.length === 0)) {
                 return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
             }
-            const d1 = data1 || [];
-            const d2 = data2 || [];
+            // Prepend 0 to start from bottom
+            const d1 = [0, ...(data1 || [])];
+            const d2 = [0, ...(data2 || [])];
+            
             // Use actual max value, don't force minimum of 1
             const rawMax = Math.max(...d1, ...d2);
             const maxVal = rawMax > 0 ? rawMax : 1;
             const padding = 1;
 
             function makePoints(data) {
+                if (data.length === 0) return '';
                 const stepX = width / Math.max(data.length - 1, 1);
                 return data.map((val, i) => {
                     const x = i * stepX;
-                    // When all values are 0, render at bottom
                     const y = rawMax > 0 
                         ? height - padding - ((val / maxVal) * (height - padding * 2))
                         : height - padding;
@@ -918,6 +890,7 @@ def get_html(title: str = "Process Manager") -> str:
             }
 
             function makeArea(points, data) {
+                if (data.length === 0) return '';
                 const stepX = width / Math.max(data.length - 1, 1);
                 return `0,${height} ${points} ${((data.length - 1) * stepX)},${height}`;
             }
@@ -957,18 +930,20 @@ def get_html(title: str = "Process Manager") -> str:
             if ((!data1 || data1.length === 0) && (!data2 || data2.length === 0)) {
                 return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
             }
-            const d1 = data1 || [];
-            const d2 = data2 || [];
+            // Prepend 0 to start from bottom
+            const d1 = [0, ...(data1 || [])];
+            const d2 = [0, ...(data2 || [])];
+            
             // Use actual max value, don't force minimum of 1
             const rawMax = Math.max(...d1, ...d2);
             const maxVal = rawMax > 0 ? rawMax : 1;
             const padding = 2;
 
             function makePoints(data) {
+                if (data.length === 0) return '';
                 const stepX = width / Math.max(data.length - 1, 1);
                 return data.map((val, i) => {
                     const x = i * stepX;
-                    // When all values are 0, render at bottom
                     const y = rawMax > 0 
                         ? height - padding - ((val / maxVal) * (height - padding * 2))
                         : height - padding;
@@ -977,6 +952,7 @@ def get_html(title: str = "Process Manager") -> str:
             }
 
             function makeArea(points, data) {
+                if (data.length === 0) return '';
                 const stepX = width / Math.max(data.length - 1, 1);
                 return `0,${height} ${points} ${((data.length - 1) * stepX)},${height}`;
             }
@@ -1741,29 +1717,6 @@ def get_html(title: str = "Process Manager") -> str:
                 <div class="host-metric-detail">${h.memory_used_gb} / ${h.memory_total_gb} GB</div>
                 <div class="host-metric-chart">${renderSparkline(h.memory_history.slice(-300), 200, 30)}</div>
             `;
-
-            document.getElementById('hostDiskWidget').innerHTML = `
-                <div class="host-metric-header">
-                    <span class="host-metric-label">Disk I/O</span>
-                    <span class="host-metric-value" style="color: #26c6da; font-size: 0.8em;">R ${formatBytes(h.disk_read_rate)} W ${formatBytes(h.disk_write_rate)}</span>
-                </div>
-                <div class="host-metric-chart">${renderDualSparkline(h.disk_read_history.slice(-300), h.disk_write_history.slice(-300), '#26c6da', '#ff9800', 200, 30)}</div>
-            `;
-
-            document.getElementById('hostNetWidget').innerHTML = `
-                <div class="host-metric-header">
-                    <span class="host-metric-label">Network</span>
-                    <span class="host-metric-value" style="color: #7c4dff; font-size: 0.8em;">&uarr;${formatBytes(h.net_sent_rate)} &darr;${formatBytes(h.net_recv_rate)}</span>
-                </div>
-                <div class="host-metric-chart">${renderDualSparkline(h.net_sent_history.slice(-300), h.net_recv_history.slice(-300), '#7c4dff', '#4caf50', 200, 30)}</div>
-            `;
-
-            document.getElementById('hostMetricsSummary').innerHTML = `
-                <span class="summary-item"><span class="summary-label">CPU</span> <span style="color:${cpuColor}">${h.cpu_percent.toFixed(1)}%</span></span>
-                <span class="summary-item"><span class="summary-label">RAM</span> <span style="color:${memColor}">${h.memory_percent.toFixed(1)}%</span></span>
-                <span class="summary-item"><span class="summary-label">Disk</span> R ${formatBytes(h.disk_read_rate)} W ${formatBytes(h.disk_write_rate)}</span>
-                <span class="summary-item"><span class="summary-label">Net</span> &uarr;${formatBytes(h.net_sent_rate)} &darr;${formatBytes(h.net_recv_rate)}</span>
-            `;
         }
 
         function renderHostMetricsPage(h) {
@@ -1828,37 +1781,27 @@ def get_html(title: str = "Process Manager") -> str:
             `;
         }
 
-        function toggleHostMetricsBar() {
-            const bar = document.getElementById('hostMetricsBar');
-            const isCollapsed = bar.classList.toggle('collapsed');
-            localStorage.setItem('hostMetricsCollapsed', isCollapsed ? '1' : '0');
-        }
-
         function toggleHostPage() {
             hostPageVisible = !hostPageVisible;
             const page = document.getElementById('hostMetricsPage');
             const processList = document.getElementById('processes');
             const btn = document.getElementById('btnHostMetrics');
+            const metricsBar = document.getElementById('hostMetricsBar');
             if (hostPageVisible) {
                 page.classList.add('active');
                 processList.style.display = 'none';
+                metricsBar.style.display = 'none';
                 btn.textContent = 'Processes';
                 btn.style.background = 'linear-gradient(135deg, #673ab7, #512da8)';
                 if (lastHostData) renderHostMetricsPage(lastHostData);
             } else {
                 page.classList.remove('active');
                 processList.style.display = '';
+                metricsBar.style.display = '';
                 btn.textContent = 'Host Metrics';
                 btn.style.background = 'linear-gradient(135deg, #00897b, #00695c)';
             }
         }
-
-        // Restore host metrics bar state
-        (function initHostBar() {
-            if (localStorage.getItem('hostMetricsCollapsed') === '1') {
-                document.getElementById('hostMetricsBar').classList.add('collapsed');
-            }
-        })();
 
         fetchStatus();
         setInterval(fetchStatus, 2000);
