@@ -874,9 +874,9 @@ def get_html(title: str = "Process Manager") -> str:
             const d1 = [0, ...(data1 || [])];
             const d2 = [0, ...(data2 || [])];
             
-            // Use actual max value, don't force minimum of 1
-            const rawMax = Math.max(...d1, ...d2);
-            const maxVal = rawMax > 0 ? rawMax : 1;
+            // Use minimum max value of 10 to ensure proper scaling like renderSparkline
+            const rawMax = Math.max(...d1, ...d2, 10);
+            const maxVal = rawMax;
             const padding = 1;
 
             function makePoints(data) {
@@ -884,9 +884,7 @@ def get_html(title: str = "Process Manager") -> str:
                 const stepX = width / Math.max(data.length - 1, 1);
                 return data.map((val, i) => {
                     const x = i * stepX;
-                    const y = rawMax > 0 
-                        ? height - padding - ((val / maxVal) * (height - padding * 2))
-                        : height - padding;
+                    const y = height - padding - ((val / maxVal) * (height - padding * 2));
                     return `${x},${y}`;
                 }).join(' ');
             }
@@ -932,26 +930,24 @@ def get_html(title: str = "Process Manager") -> str:
             if ((!data1 || data1.length === 0) && (!data2 || data2.length === 0)) {
                 return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"></svg>`;
             }
-            // Prepend 0 to start from bottom
-            const d1 = [0, ...(data1 || [])];
-            const d2 = [0, ...(data2 || [])];
-            
-            // Use actual max value, don't force minimum of 1
-            const rawMax = Math.max(...d1, ...d2);
-            const maxVal = rawMax > 0 ? rawMax : 1;
-            const padding = 2;
+             // Prepend 0 to start from bottom
+             const d1 = [0, ...(data1 || [])];
+             const d2 = [0, ...(data2 || [])];
+             
+             // Use minimum max value of 10 to ensure proper scaling
+             const rawMax = Math.max(...d1, ...d2, 10);
+             const maxVal = rawMax;
+             const padding = 2;
 
-            function makePoints(data) {
-                if (data.length === 0) return '';
-                const stepX = width / Math.max(data.length - 1, 1);
-                return data.map((val, i) => {
-                    const x = i * stepX;
-                    const y = rawMax > 0 
-                        ? height - padding - ((val / maxVal) * (height - padding * 2))
-                        : height - padding;
-                    return `${x},${y}`;
-                }).join(' ');
-            }
+             function makePoints(data) {
+                 if (data.length === 0) return '';
+                 const stepX = width / Math.max(data.length - 1, 1);
+                 return data.map((val, i) => {
+                     const x = i * stepX;
+                     const y = height - padding - ((val / maxVal) * (height - padding * 2));
+                     return `${x},${y}`;
+                 }).join(' ');
+             }
 
             function makeArea(points, data) {
                 if (data.length === 0) return '';
