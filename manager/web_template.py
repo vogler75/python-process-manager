@@ -95,7 +95,7 @@ def get_html(title: str = "Process Manager") -> str:
         .process-list {
             padding: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
             gap: 20px;
         }
         .process {
@@ -192,9 +192,10 @@ def get_html(title: str = "Process Manager") -> str:
 
         .process-stats {
             display: grid;
-            grid-template-columns: 1fr 140px 140px;
-            gap: 20px;
+            grid-template-columns: 1fr 120px 120px;
+            gap: 10px;
             align-items: center;
+            overflow: hidden;
             background: rgba(0,0,0,0.2);
             padding: 15px;
             border-radius: 12px;
@@ -210,13 +211,14 @@ def get_html(title: str = "Process Manager") -> str:
         .stat-label { color: #555; font-size: 0.75em; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
         .stat-value { color: #ccc; font-family: 'Monaco', monospace; font-size: 0.9em; }
         
-        .cpu-group { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: flex-end; 
-            gap: 5px; 
+        .cpu-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
             padding-left: 15px;
             border-left: 1px solid rgba(255,255,255,0.05);
+            min-width: 0;
         }
         .cpu-val-display { font-size: 1.4em; font-weight: 700; color: #4caf50; letter-spacing: -0.5px; }
         .cpu-label-mini { font-size: 0.7em; color: #666; text-transform: uppercase; }
@@ -227,13 +229,14 @@ def get_html(title: str = "Process Manager") -> str:
         }
         .cpu-chart-mini svg { display: block; width: 100%; height: 100%; }
 
-        .memory-group { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: flex-end; 
-            gap: 5px; 
+        .memory-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
             padding-left: 15px;
             border-left: 1px solid rgba(255,255,255,0.05);
+            min-width: 0;
         }
         .memory-val-display { font-size: 1.4em; font-weight: 700; color: #2196f3; letter-spacing: -0.5px; }
         .memory-label-mini { font-size: 0.7em; color: #666; text-transform: uppercase; }
