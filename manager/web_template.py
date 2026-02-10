@@ -192,7 +192,7 @@ def get_html(title: str = "Process Manager") -> str:
 
         .process-stats {
             display: grid;
-            grid-template-columns: 1fr 140px;
+            grid-template-columns: 1fr 140px 140px;
             gap: 20px;
             align-items: center;
             background: rgba(0,0,0,0.2);
@@ -226,6 +226,23 @@ def get_html(title: str = "Process Manager") -> str:
             opacity: 0.8;
         }
         .cpu-chart-mini svg { display: block; width: 100%; height: 100%; }
+
+        .memory-group { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-end; 
+            gap: 5px; 
+            padding-left: 15px;
+            border-left: 1px solid rgba(255,255,255,0.05);
+        }
+        .memory-val-display { font-size: 1.4em; font-weight: 700; color: #2196f3; letter-spacing: -0.5px; }
+        .memory-label-mini { font-size: 0.7em; color: #666; text-transform: uppercase; }
+        .memory-chart-mini {
+            width: 100%;
+            height: 35px;
+            opacity: 0.8;
+        }
+        .memory-chart-mini svg { display: block; width: 100%; height: 100%; }
 
         .process-actions {
             display: flex;
@@ -1065,7 +1082,13 @@ def get_html(title: str = "Process Manager") -> str:
                         </div>
                         <div class="cpu-group">
                             <div class="cpu-val-display" style="color: ${getCPUColor(p.cpu_history)}">${p.cpu_current.toFixed(1)}%</div>
+                            <div class="cpu-label-mini">CPU</div>
                             <div class="cpu-chart-mini">${renderSparkline(p.cpu_history, 120, 35)}</div>
+                        </div>
+                        <div class="memory-group">
+                            <div class="memory-val-display">${p.memory_current.toFixed(1)} MB</div>
+                            <div class="memory-label-mini">MEMORY</div>
+                            <div class="memory-chart-mini">${renderSparkline(p.memory_history, 120, 35)}</div>
                         </div>
                     </div>
 
@@ -1097,6 +1120,7 @@ def get_html(title: str = "Process Manager") -> str:
                             <th>Uptime</th>
                             <th>Log Size</th>
                             <th>CPU</th>
+                            <th>Memory</th>
                             <th>Restarts</th>
                             <th>Actions</th>
                         </tr>
@@ -1116,6 +1140,16 @@ def get_html(title: str = "Process Manager") -> str:
                                         </div>
                                         <div style="font-size: 0.9em; font-weight: 700; color: ${getCPUColor(p.cpu_history)}; min-width: 50px;">
                                             ${p.cpu_current.toFixed(1)}%
+                                        </div>
+                                    </div>
+                                </td>
+                                 <td>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 100px; height: 24px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden; flex-shrink: 0;">
+                                            ${renderSparkline(p.memory_history, 100, 24)}
+                                        </div>
+                                        <div style="font-size: 0.9em; font-weight: 700; color: #2196f3; min-width: 60px;">
+                                            ${p.memory_current.toFixed(1)} MB
                                         </div>
                                     </div>
                                 </td>

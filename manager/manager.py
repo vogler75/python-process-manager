@@ -354,6 +354,30 @@ class ProcessManager:
             info._psutil_process = None
             info.cpu_history.append(0.0)
 
+    def collect_memory_usage(self, info: ProcessInfo):
+        """Collect memory usage for a process and add to history (in MB)."""
+        if not PSUTIL_AVAILABLE:
+            return
+
+        pid = info.pid
+        if not pid or not self.is_process_alive(pid):
+            info._psutil_process = None
+            info.memory_history.append(0.0)
+            return
+
+        try:
+            # Get or create psutil.Process object
+            if info._psutil_process is None or info._psutil_process.pid != pid:
+                info._psutil_process = psutil.Process(pid)
+
+            # Get memory info (RSS - Resident Set Size in bytes)
+            mem_info = info._psutil_process.memory_info()
+            memory_mb = round(mem_info.rss / (1024 * 1024), 1)  # Convert to MB
+            info.memory_history.append(memory_mb)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            info._psutil_process = None
+            info.memory_history.append(0.0)
+
     def _init_host_metrics(self) -> HostMetrics:
         """Initialize host metrics with static system info."""
         metrics = HostMetrics()
@@ -693,6 +717,7 @@ class ProcessManager:
                 # Collect CPU usage and check log rotation for all processes
                 for info in self.processes.values():
                     self.collect_cpu_usage(info)
+                    self.collect_memory_usage(info)
                     self.rotate_log_if_needed(info)
 
                 # Collect host OS metrics
@@ -726,6 +751,10 @@ class ProcessManager:
                 cpu_history = list(info.cpu_history)
                 cpu_current = cpu_history[-1] if cpu_history else 0.0
 
+                # Get memory data
+                memory_history = list(info.memory_history)
+                memory_current = memory_history[-1] if memory_history else 0.0
+
                 status.append({
                     "name": info.name,
                     "script": info.script,
@@ -750,7 +779,9 @@ class ProcessManager:
                     "log_size": log_size,
                     "log_size_display": log_size_display,
                     "cpu_current": round(cpu_current, 1),
-                    "cpu_history": [round(x, 1) for x in cpu_history]
+                    "cpu_history": [round(x, 1) for x in cpu_history],
+                    "memory_current": round(memory_current, 1),
+                    "memory_history": [round(x, 1) for x in memory_history]
                 })
         return status
 

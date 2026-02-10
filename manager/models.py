@@ -78,4 +78,5 @@ class ProcessInfo:
     total_restarts: int = 0
     _user_action_in_progress: bool = False  # Flag to prevent monitor interference during explicit actions
     cpu_history: deque = field(default_factory=lambda: deque(maxlen=CPU_HISTORY_SIZE))
+    memory_history: deque = field(default_factory=lambda: deque(maxlen=CPU_HISTORY_SIZE))  # Memory usage in MB
     _psutil_process: object = None  # Cache psutil.Process object
