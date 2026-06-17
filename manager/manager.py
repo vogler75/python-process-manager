@@ -588,6 +588,8 @@ class ProcessManager:
 
         # Build environment variables
         env = os.environ.copy()
+        if info.type == RUNTIME_PYTHON:
+            env["PYTHONUNBUFFERED"] = "TRUE"
         if info.environment:
             for env_var in info.environment:
                 if '=' in env_var:
